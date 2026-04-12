@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Logo } from '@/components/feature/Logo';
 import { Button } from '@/components/ui/Button';
 import { ProductCarousel } from '@/components/feature/ProductCarousel';
+import { SavingsCalculator } from '@/components/feature/SavingsCalculator';
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme';
 
 const STATS = [
@@ -136,6 +137,11 @@ export default function HomeScreen() {
           Transform agro residue into premium biomass pellets, briquettes, and chips.
           Our circular economy model ensures zero waste while delivering clean, cost-effective fuel to industries across Tamil Nadu.
         </Text>
+      </View>
+
+      {/* Savings Calculator */}
+      <View style={[styles.card, { overflow: 'visible', padding: 0 }]}>
+        <SavingsCalculator compact />
       </View>
 
       {/* Applications */}

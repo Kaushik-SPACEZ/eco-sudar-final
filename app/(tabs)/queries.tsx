@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAlert } from '@/template';
 import { Logo } from '@/components/feature/Logo';
 import { FormInput } from '@/components/ui/FormInput';
+import { SavingsCalculator } from '@/components/feature/SavingsCalculator';
 import { Button } from '@/components/ui/Button';
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme';
 
@@ -57,6 +58,11 @@ export default function QueriesScreen() {
       <View style={styles.header}>
         <Logo />
         <Text style={styles.headerTitle}>Queries</Text>
+      </View>
+
+      {/* Savings Calculator */}
+      <View style={[styles.card, { padding: 0, overflow: 'hidden' }]}>
+        <SavingsCalculator />
       </View>
 
       {/* Contact Info */}
