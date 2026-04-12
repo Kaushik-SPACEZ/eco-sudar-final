@@ -62,7 +62,6 @@ export function ProductCarousel() {
             />
             <Text style={styles.productName}>{product.name}</Text>
             <Text style={styles.price}>₹{product.price}/kg</Text>
-            <Text style={styles.viewLink}>View Details →</Text>
           </View>
         ))}
       </ScrollView>
@@ -113,11 +112,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     marginBottom: 8,
   },
-  viewLink: {
-    fontSize: FontSize.sm,
-    color: Colors.primary,
-    fontWeight: FontWeight.medium,
-  },
+
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',

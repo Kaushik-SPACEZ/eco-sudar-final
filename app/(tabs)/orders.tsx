@@ -2,8 +2,11 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/hooks/useAuth';
 import { useOrder } from '@/hooks/useOrder';
 import { Logo } from '@/components/feature/Logo';
+import { Button } from '@/components/ui/Button';
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme';
 import { PlacedOrder } from '@/contexts/OrderContext';
 
@@ -46,7 +49,26 @@ function OrderCard({ order }: { order: PlacedOrder }) {
 
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { orders } = useOrder();
+  const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Logo />
+          <Text style={styles.headerTitle}>My Orders</Text>
+        </View>
+        <View style={styles.empty}>
+          <MaterialIcons name="person-outline" size={72} color={Colors.borderLight} />
+          <Text style={styles.emptyTitle}>Sign In Required</Text>
+          <Text style={styles.emptyText}>Sign in to view and track your orders</Text>
+          <Button label="Sign In" onPress={() => router.push('/auth')} style={{ marginTop: 20 }} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

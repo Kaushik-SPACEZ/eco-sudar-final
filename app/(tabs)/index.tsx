@@ -58,9 +58,6 @@ export default function HomeScreen() {
               <Pressable onPress={() => router.push('/auth')} style={styles.signInBtn}>
                 <Text style={styles.signInText}>Sign In</Text>
               </Pressable>
-              <Pressable onPress={() => router.push({ pathname: '/auth', params: { tab: 'signup' } })} style={styles.signUpBtn}>
-                <Text style={styles.signUpText}>Sign Up</Text>
-              </Pressable>
             </>
           )}
         </View>
@@ -81,12 +78,12 @@ export default function HomeScreen() {
           contentFit="cover"
           transition={300}
         />
-        <View style={styles.heroOverlay}>
-          <Text style={styles.heroTitle}>Powering a{'\n'}Sustainable Future</Text>
-          <Text style={styles.heroSubtitle}>
-            India's leading biomass energy company transforming agro residue into clean fuel
-          </Text>
-        </View>
+      </View>
+      <View style={styles.heroTextSection}>
+        <Text style={styles.heroTitle} numberOfLines={1} adjustsFontSizeToFit>Powering a Sustainable Future</Text>
+        <Text style={styles.heroSubtitle}>
+          India's leading biomass energy company transforming agro residue into clean fuel
+        </Text>
       </View>
 
       {/* Carousel */}
@@ -206,24 +203,12 @@ const styles = StyleSheet.create({
     color: Colors.textMedium,
   },
   signInBtn: {
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    borderRadius: Radius.sm,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  signInText: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textDark,
-  },
-  signUpBtn: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.sm,
     paddingVertical: 6,
     paddingHorizontal: 12,
   },
-  signUpText: {
+  signInText: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
     color: Colors.white,
@@ -241,32 +226,27 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
   },
   hero: {
-    height: 220,
-    position: 'relative',
+    height: 200,
+    width: '100%',
     overflow: 'hidden',
   },
   heroImage: {
     width: '100%',
     height: '100%',
   },
-  heroOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(14,51,38,0.7)',
+  heroTextSection: {
+    backgroundColor: Colors.primaryLight,
     padding: Spacing.lg,
   },
   heroTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: FontWeight.bold,
-    color: Colors.white,
+    color: Colors.textDark,
     marginBottom: 6,
-    lineHeight: 30,
   },
   heroSubtitle: {
     fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.85)',
+    color: Colors.textMedium,
     lineHeight: 18,
   },
   section: {

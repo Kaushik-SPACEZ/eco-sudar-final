@@ -81,9 +81,6 @@ export default function AuthScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <MaterialIcons name="arrow-back" size={24} color={Colors.textDark} />
-          </Pressable>
           <Logo />
           <Text style={styles.headerTitle}>
             {tab === 'signin' ? 'Welcome Back' : 'Create Account'}

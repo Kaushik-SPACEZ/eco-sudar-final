@@ -20,11 +20,7 @@ export function ScreenHeader({ title, showBack = true, showLogo = true, right }:
   return (
     <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
       <View style={styles.left}>
-        {showBack ? (
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <MaterialIcons name="arrow-back" size={24} color={Colors.textDark} />
-          </Pressable>
-        ) : null}
+
         {showLogo ? <Logo /> : null}
       </View>
       {title ? <Text style={styles.title}>{title}</Text> : null}

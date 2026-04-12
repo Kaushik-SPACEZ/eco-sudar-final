@@ -1,41 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { Colors, FontSize, FontWeight } from '@/constants/theme';
+import { View, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
 export function Logo({ size = 'md' }: LogoProps) {
-  const iconSize = size === 'sm' ? 18 : size === 'lg' ? 28 : 22;
-  const textSize = size === 'sm' ? 14 : size === 'lg' ? 22 : 16;
+  const width = size === 'sm' ? 80 : size === 'lg' ? 140 : 110;
+  const height = size === 'sm' ? 40 : size === 'lg' ? 70 : 55;
 
   return (
     <View style={styles.container}>
-      <MaterialIcons name="eco" size={iconSize} color={Colors.primary} />
-      <Text style={[styles.text, { fontSize: textSize }]}>
-        <Text style={styles.eco}>Eco </Text>
-        <Text style={styles.sudar}>Sudar</Text>
-      </Text>
+      <Image 
+        source={require('@/assets/images/logo.png')} 
+        style={{ width, height }}
+        contentFit="contain"
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  text: {
-    fontWeight: FontWeight.bold,
-    letterSpacing: -0.3,
-  },
-  eco: {
-    color: Colors.primary,
-  },
-  sudar: {
-    color: Colors.red,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
 });

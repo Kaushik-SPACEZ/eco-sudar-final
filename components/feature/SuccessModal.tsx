@@ -26,6 +26,9 @@ export function SuccessModal({ visible, orderId, onGoHome, onViewOrder }: Succes
             <Text style={styles.orderId}>{orderId}</Text>
           </View>
           <Text style={styles.trackText}>Track your order in the Orders section</Text>
+          <Text style={[styles.trackText, { color: Colors.primary, fontWeight: FontWeight.semibold, marginTop: -12 }]}>
+            Admin will contact you soon regarding payment
+          </Text>
           <Button label="Back to Home" onPress={onGoHome} fullWidth style={styles.btn} />
           <Pressable onPress={onViewOrder} style={styles.viewLink}>
             <Text style={styles.viewLinkText}>View Order Details</Text>

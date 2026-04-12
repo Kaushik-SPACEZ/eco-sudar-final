@@ -15,7 +15,7 @@ export const PRODUCTS = [
   },
   {
     id: 'briquettes',
-    name: 'Biomass Briquettes',
+    name: 'Biomass Stove',
     image: require('@/assets/images/product-stove.png'),
     price: 7.0,
     unit: 'kg',
@@ -25,11 +25,11 @@ export const PRODUCTS = [
     ash: '< 5%',
     description: 'Compressed biomass briquettes for industrial use',
     suitableFor: 'Industrial dryers, Brick kilns',
-    sizes: ['60mm', '90mm'],
+    sizes: ['1kg', '3kg', '5kg', '10kg', '15kg', '25kg'],
   },
   {
     id: 'chips',
-    name: 'Wood Chips',
+    name: 'Biomass Burner',
     image: require('@/assets/images/product-burner.png'),
     price: 5.5,
     unit: 'kg',
@@ -39,7 +39,7 @@ export const PRODUCTS = [
     ash: '< 7%',
     description: 'Natural wood chips for biomass gasifiers',
     suitableFor: 'Gasifiers, Biomass boilers',
-    sizes: ['25mm', '50mm'],
+    sizes: ['50kw', '100kw', '150kw', '200kw', '250kw', '300kw'],
   },
 ];
 
