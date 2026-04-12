@@ -104,7 +104,6 @@ export default function QueriesScreen() {
           onChangeText={setMessage}
           multiline
           numberOfLines={4}
-          style={{ height: 100, paddingTop: 12 }}
         />
         <Button
           label="Submit Query"

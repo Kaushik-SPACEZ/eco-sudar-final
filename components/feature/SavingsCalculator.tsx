@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.primaryBorder,
-    padding: Spacing.lg,
+    padding: Spacing.md,
     gap: 12,
   },
   compactLeft: {

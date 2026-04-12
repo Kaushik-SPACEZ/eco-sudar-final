@@ -86,8 +86,14 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* Carousel */}
-      <View style={styles.section}>
+      {/* Main Content Area (White Background) */}
+      <View style={[styles.section, { marginTop: 0, paddingTop: Spacing.lg }]}>
+        {/* Savings Calculator */}
+        <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg }}>
+          <SavingsCalculator compact />
+        </View>
+
+        {/* Carousel */}
         <Text style={styles.sectionTitle}>Our Products</Text>
         <ProductCarousel />
       </View>
@@ -134,11 +140,6 @@ export default function HomeScreen() {
           Transform agro residue into premium biomass pellets, briquettes, and chips.
           Our circular economy model ensures zero waste while delivering clean, cost-effective fuel to industries across Tamil Nadu.
         </Text>
-      </View>
-
-      {/* Savings Calculator */}
-      <View style={[styles.card, { overflow: 'visible', padding: 0 }]}>
-        <SavingsCalculator compact />
       </View>
 
       {/* Applications */}
@@ -226,7 +227,7 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
   },
   hero: {
-    height: 200,
+    height: 160,
     width: '100%',
     overflow: 'hidden',
   },
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
   },
   heroTextSection: {
     backgroundColor: Colors.primaryLight,
-    padding: Spacing.lg,
+    padding: Spacing.md,
   },
   heroTitle: {
     fontSize: 22,
