@@ -71,13 +71,14 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.borderLight,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
-    height: 48,
+    paddingVertical: 6,
+    minHeight: 48,
   },
   focused: {
     borderColor: Colors.primary,
@@ -87,12 +88,14 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: 8,
+    marginTop: 9,
   },
   input: {
     flex: 1,
     fontSize: FontSize.body,
     color: Colors.textDark,
-    height: 48,
+    minHeight: 36,
+    paddingVertical: 6,
   },
   errorText: {
     color: Colors.red,

@@ -2,8 +2,11 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useOrder } from '@/hooks/useOrder';
+import { useAuth } from '@/hooks/useAuth';
 import { Logo } from '@/components/feature/Logo';
+import { Button } from '@/components/ui/Button';
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme';
 import { PlacedOrder } from '@/contexts/OrderContext';
 
@@ -47,6 +50,31 @@ function OrderCard({ order }: { order: PlacedOrder }) {
 export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const { orders } = useOrder();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  // Auth guard
+  if (!user) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Logo />
+          <Text style={styles.headerTitle}>My Orders</Text>
+        </View>
+        <View style={styles.authGuard}>
+          <MaterialIcons name="lock-outline" size={64} color={Colors.borderLight} />
+          <Text style={styles.authTitle}>Sign In Required</Text>
+          <Text style={styles.authText}>Please sign in to view your orders</Text>
+          <Button
+            label="Sign In"
+            onPress={() => router.push('/auth')}
+            fullWidth
+            style={{ marginTop: Spacing.lg }}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -162,6 +190,25 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyText: {
+    fontSize: FontSize.body,
+    color: Colors.textMedium,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  authGuard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xxxl,
+  },
+  authTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textDark,
+    marginTop: Spacing.lg,
+    marginBottom: 8,
+  },
+  authText: {
     fontSize: FontSize.body,
     color: Colors.textMedium,
     textAlign: 'center',

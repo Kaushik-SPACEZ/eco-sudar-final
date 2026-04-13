@@ -91,12 +91,6 @@ export default function ProfileScreen() {
             fullWidth
             style={styles.guestBtn}
           />
-          <Button
-            label="Create Account"
-            onPress={() => router.push({ pathname: '/auth', params: { tab: 'signup' } })}
-            variant="secondary"
-            fullWidth
-          />
         </View>
       )}
     </ScrollView>

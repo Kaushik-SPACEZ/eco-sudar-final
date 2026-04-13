@@ -6,7 +6,6 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useAuth } from '@/hooks/useAuth';
 import { Logo } from '@/components/feature/Logo';
 import { Button } from '@/components/ui/Button';
 import { ProductCarousel } from '@/components/feature/ProductCarousel';
@@ -28,7 +27,6 @@ const APPS = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, signOut } = useAuth();
 
   return (
     <ScrollView
@@ -40,37 +38,12 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Logo size="md" />
         <View style={styles.headerActions}>
-          {user ? (
-            <>
-              <Pressable
-                onPress={() => router.push('/orders')}
-                style={styles.myOrdersBtn}
-              >
-                <Text style={styles.myOrdersText}>My Orders</Text>
-              </Pressable>
-              <Pressable onPress={signOut} style={styles.signOutBtn}>
-                <Text style={styles.signOutText}>Sign Out</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Pressable onPress={() => router.push('/auth')} style={styles.signInBtn}>
-                <Text style={styles.signInText}>Sign In</Text>
-              </Pressable>
-              <Pressable onPress={() => router.push({ pathname: '/auth', params: { tab: 'signup' } })} style={styles.signUpBtn}>
-                <Text style={styles.signUpText}>Sign Up</Text>
-              </Pressable>
-            </>
-          )}
+          <Pressable onPress={() => router.push('/auth')} style={styles.signInBtn}>
+            <Text style={styles.signInText}>Sign In</Text>
+          </Pressable>
         </View>
       </View>
 
-      {/* Greeting */}
-      {user ? (
-        <View style={styles.greeting}>
-          <Text style={styles.greetingText}>Hi, {user.name} 👋</Text>
-        </View>
-      ) : null}
 
       {/* Hero */}
       <View style={styles.hero}>

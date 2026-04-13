@@ -33,7 +33,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMedium,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 9,
           fontWeight: '600',
         },
       }}
@@ -66,6 +66,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="savings-calculator"
+        options={{
+          title: 'Calculator',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="calculate" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="queries"
         options={{
           title: 'Queries',
@@ -73,6 +82,19 @@ export default function TabLayout() {
             <MaterialIcons name="chat-bubble-outline" size={size} color={color} />
           ),
         }}
+      />
+      {/* Hidden screens — part of the ordering flow; visible in tab layout but not in tab bar */}
+      <Tabs.Screen
+        name="product-selection"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="user-details"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="order-summary"
+        options={{ href: null }}
       />
     </Tabs>
   );

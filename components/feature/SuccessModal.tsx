@@ -25,6 +25,12 @@ export function SuccessModal({ visible, orderId, onGoHome, onViewOrder }: Succes
             <Text style={styles.orderIdLabel}>Order ID</Text>
             <Text style={styles.orderId}>{orderId}</Text>
           </View>
+          <View style={styles.paymentBox}>
+            <MaterialIcons name="payment" size={20} color={Colors.primary} />
+            <Text style={styles.paymentText}>
+              Regarding payment, our admin will contact you soon.
+            </Text>
+          </View>
           <Text style={styles.trackText}>Track your order in the Orders section</Text>
           <Button label="Back to Home" onPress={onGoHome} fullWidth style={styles.btn} />
           <Pressable onPress={onViewOrder} style={styles.viewLink}>
@@ -102,5 +108,24 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: FontSize.body,
     fontWeight: FontWeight.semibold,
+  },
+  paymentBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: Colors.primaryBorder,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+    width: '100%',
+    marginBottom: 12,
+  },
+  paymentText: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    color: Colors.textDark,
+    lineHeight: 18,
   },
 });

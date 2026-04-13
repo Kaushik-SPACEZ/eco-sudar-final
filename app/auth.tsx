@@ -90,21 +90,7 @@ export default function AuthScreen() {
           </Text>
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabRow}>
-          <Pressable
-            style={[styles.tabBtn, tab === 'signin' && styles.activeTab]}
-            onPress={() => setTab('signin')}
-          >
-            <Text style={[styles.tabText, tab === 'signin' && styles.activeTabText]}>Sign In</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tabBtn, tab === 'signup' && styles.activeTab]}
-            onPress={() => setTab('signup')}
-          >
-            <Text style={[styles.tabText, tab === 'signup' && styles.activeTabText]}>Sign Up</Text>
-          </Pressable>
-        </View>
+        {/* No tab bar — Sign Up accessible via link below */}
 
         {/* Form */}
         <View style={styles.form}>
