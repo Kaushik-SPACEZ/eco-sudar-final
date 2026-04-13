@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAlert } from '@/template';
@@ -139,14 +139,25 @@ export default function QueriesScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Contact Us</Text>
         {[
-          { icon: 'email' as const, label: 'info@ecosudar.com' },
-          { icon: 'phone' as const, label: '+91 98765 43210' },
-          { icon: 'location-on' as const, label: 'Tamil Nadu, India' },
+          { icon: 'phone' as const, label: '+91 6379935362', title: 'Connect', action: 'tel:+916379935362' },
+          { icon: 'email' as const, label: 'ecosudarbiomasspellets@gmail.com', title: 'Support', action: 'mailto:ecosudarbiomasspellets@gmail.com' },
+          { icon: 'location-on' as const, label: 'Tamil Nadu, India', title: 'Location', action: null },
         ].map(c => (
-          <View key={c.label} style={styles.contactRow}>
+          <Pressable 
+            key={c.label} 
+            style={styles.contactRow}
+            onPress={() => c.action && Linking.openURL(c.action)}
+            disabled={!c.action}
+          >
             <MaterialIcons name={c.icon} size={20} color={Colors.primary} />
-            <Text style={styles.contactValue}>{c.label}</Text>
-          </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>{c.title}</Text>
+              <Text style={[styles.contactValue, c.action && styles.contactValueClickable]}>{c.label}</Text>
+            </View>
+            {c.action && (
+              <MaterialIcons name="chevron-right" size={20} color={Colors.textMedium} />
+            )}
+          </Pressable>
         ))}
       </View>
     </ScrollView>
@@ -239,8 +250,18 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
   },
+  contactLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textMedium,
+    marginBottom: 2,
+  },
   contactValue: {
     fontSize: FontSize.body,
     color: Colors.textDark,
+  },
+  contactValueClickable: {
+    color: Colors.primary,
+    textDecorationLine: 'underline',
   },
 });

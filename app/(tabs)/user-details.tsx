@@ -16,7 +16,7 @@ import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme
 type UserType = 'customer' | 'dealer';
 
 function validateEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return email.toLowerCase().endsWith('@gmail.com') && /^[^\s@]+@gmail\.com$/.test(email.toLowerCase());
 }
 
 function validatePhone(phone: string) {

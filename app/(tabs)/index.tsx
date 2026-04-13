@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Pressable,
+  View, Text, ScrollView, StyleSheet, Pressable, Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -107,7 +107,7 @@ export default function HomeScreen() {
         />
         <Button
           label="Learn More"
-          onPress={() => {}}
+          onPress={() => Linking.openURL('https://www.ecosudar.com/')}
           variant="secondary"
           style={styles.ctaBtn}
         />

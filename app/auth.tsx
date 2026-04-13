@@ -10,6 +10,7 @@ import { useAlert } from '@/template';
 import { Logo } from '@/components/feature/Logo';
 import { FormInput } from '@/components/ui/FormInput';
 import { Button } from '@/components/ui/Button';
+import { ForgotPasswordModal } from '@/components/feature/ForgotPasswordModal';
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme';
 
 export default function AuthScreen() {
@@ -34,9 +35,16 @@ export default function AuthScreen() {
   const [suPassword, setSuPassword] = useState('');
   const [suConfirm, setSuConfirm] = useState('');
 
+  // Forgot Password Modal
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+
   const handleSignIn = async () => {
     if (!siEmail || !siPassword) {
       showAlert('Missing Fields', 'Please enter email and password');
+      return;
+    }
+    if (!siEmail.toLowerCase().endsWith('@gmail.com')) {
+      showAlert('Invalid Email', 'Please use a valid @gmail.com email address');
       return;
     }
     const ok = await signIn(siEmail, siPassword);
@@ -50,6 +58,10 @@ export default function AuthScreen() {
   const handleSignUp = async () => {
     if (!suName || !suEmail || !suPhone || !suPassword || !suConfirm) {
       showAlert('Missing Fields', 'Please fill all required fields');
+      return;
+    }
+    if (!suEmail.toLowerCase().endsWith('@gmail.com')) {
+      showAlert('Invalid Email', 'Please use a valid @gmail.com email address');
       return;
     }
     if (suPassword !== suConfirm) {
@@ -126,7 +138,10 @@ export default function AuthScreen() {
                 onChangeText={setSiPassword}
                 isPassword
               />
-              <Pressable style={styles.forgotLink}>
+              <Pressable 
+                style={styles.forgotLink}
+                onPress={() => setShowForgotPassword(true)}
+              >
                 <Text style={styles.forgotText}>Forgot Password?</Text>
               </Pressable>
               <Button
@@ -206,6 +221,15 @@ export default function AuthScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        visible={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        onSuccess={() => {
+          showAlert('Success', 'Password reset successfully! You can now sign in with your new password.');
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
