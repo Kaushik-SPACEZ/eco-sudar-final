@@ -6,9 +6,11 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '@/hooks/useAuth';
 import { Logo } from '@/components/feature/Logo';
 import { Button } from '@/components/ui/Button';
 import { ProductCarousel } from '@/components/feature/ProductCarousel';
+import { SavingsCalculator } from '@/components/feature/SavingsCalculator';
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme';
 
 const STATS = [
@@ -27,6 +29,7 @@ const APPS = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user, signOut } = useAuth();
 
   return (
     <ScrollView
@@ -38,12 +41,34 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Logo size="md" />
         <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push('/auth')} style={styles.signInBtn}>
-            <Text style={styles.signInText}>Sign In</Text>
-          </Pressable>
+          {user ? (
+            <>
+              <Pressable
+                onPress={() => router.push('/orders')}
+                style={styles.myOrdersBtn}
+              >
+                <Text style={styles.myOrdersText}>My Orders</Text>
+              </Pressable>
+              <Pressable onPress={signOut} style={styles.signOutBtn}>
+                <Text style={styles.signOutText}>Sign Out</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Pressable onPress={() => router.push('/auth')} style={styles.signInBtn}>
+                <Text style={styles.signInText}>Sign In</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
 
+      {/* Greeting */}
+      {user ? (
+        <View style={styles.greeting}>
+          <Text style={styles.greetingText}>Hi, {user.name} 👋</Text>
+        </View>
+      ) : null}
 
       {/* Hero */}
       <View style={styles.hero}>
@@ -53,16 +78,22 @@ export default function HomeScreen() {
           contentFit="cover"
           transition={300}
         />
-        <View style={styles.heroOverlay}>
-          <Text style={styles.heroTitle}>Powering a{'\n'}Sustainable Future</Text>
-          <Text style={styles.heroSubtitle}>
-            India's leading biomass energy company transforming agro residue into clean fuel
-          </Text>
-        </View>
+      </View>
+      <View style={styles.heroTextSection}>
+        <Text style={styles.heroTitle} numberOfLines={1} adjustsFontSizeToFit>Powering a Sustainable Future</Text>
+        <Text style={styles.heroSubtitle}>
+          India's leading biomass energy company transforming agro residue into clean fuel
+        </Text>
       </View>
 
-      {/* Carousel */}
-      <View style={styles.section}>
+      {/* Main Content Area (White Background) */}
+      <View style={[styles.section, { marginTop: 0, paddingTop: Spacing.lg }]}>
+        {/* Savings Calculator */}
+        <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg }}>
+          <SavingsCalculator compact />
+        </View>
+
+        {/* Carousel */}
         <Text style={styles.sectionTitle}>Our Products</Text>
         <ProductCarousel />
       </View>
@@ -173,24 +204,12 @@ const styles = StyleSheet.create({
     color: Colors.textMedium,
   },
   signInBtn: {
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    borderRadius: Radius.sm,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  signInText: {
-    fontSize: FontSize.sm,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textDark,
-  },
-  signUpBtn: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.sm,
     paddingVertical: 6,
     paddingHorizontal: 12,
   },
-  signUpText: {
+  signInText: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
     color: Colors.white,
@@ -208,32 +227,27 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
   },
   hero: {
-    height: 220,
-    position: 'relative',
+    height: 130,
+    width: '100%',
     overflow: 'hidden',
   },
   heroImage: {
     width: '100%',
     height: '100%',
   },
-  heroOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(14,51,38,0.7)',
-    padding: Spacing.lg,
+  heroTextSection: {
+    backgroundColor: Colors.primaryLight,
+    padding: Spacing.md,
   },
   heroTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: FontWeight.bold,
-    color: Colors.white,
+    color: Colors.textDark,
     marginBottom: 6,
-    lineHeight: 30,
   },
   heroSubtitle: {
     fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.85)',
+    color: Colors.textMedium,
     lineHeight: 18,
   },
   section: {

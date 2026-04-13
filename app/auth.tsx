@@ -81,16 +81,27 @@ export default function AuthScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <MaterialIcons name="arrow-back" size={24} color={Colors.textDark} />
-          </Pressable>
           <Logo />
           <Text style={styles.headerTitle}>
             {tab === 'signin' ? 'Welcome Back' : 'Create Account'}
           </Text>
         </View>
 
-        {/* No tab bar — Sign Up accessible via link below */}
+        {/* Tabs */}
+        <View style={styles.tabRow}>
+          <Pressable
+            style={[styles.tabBtn, tab === 'signin' && styles.activeTab]}
+            onPress={() => setTab('signin')}
+          >
+            <Text style={[styles.tabText, tab === 'signin' && styles.activeTabText]}>Sign In</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabBtn, tab === 'signup' && styles.activeTab]}
+            onPress={() => setTab('signup')}
+          >
+            <Text style={[styles.tabText, tab === 'signup' && styles.activeTabText]}>Sign Up</Text>
+          </Pressable>
+        </View>
 
         {/* Form */}
         <View style={styles.form}>

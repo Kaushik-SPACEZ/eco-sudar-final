@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useOrder } from '@/hooks/useOrder';
+import { useAuth } from '@/hooks/useAuth';
 import { useAlert } from '@/template';
 import { ScreenHeader } from '@/components/feature/ScreenHeader';
 import { PillButton } from '@/components/ui/PillButton';
@@ -17,6 +18,7 @@ import { PRODUCTS, PURPOSES, SUB_PURPOSES, DELIVERY_FEE } from '@/constants/prod
 export default function ProductSelectionScreen() {
   const router = useRouter();
   const { setCurrentProduct } = useOrder();
+  const { user } = useAuth();
   const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
 
@@ -54,6 +56,20 @@ export default function ProductSelectionScreen() {
     router.push('/user-details');
   };
 
+  if (!user) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.bgPage, paddingTop: insets.top }}>
+        <ScreenHeader title="Order Products" showLogo />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxxl }}>
+          <MaterialIcons name="person-outline" size={72} color={Colors.borderLight} />
+          <Text style={{ fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.textDark, marginTop: Spacing.lg, marginBottom: 8, textAlign: 'center' }}>Sign In Required</Text>
+          <Text style={{ fontSize: FontSize.body, color: Colors.textMedium, textAlign: 'center', marginBottom: Spacing.xxl }}>You need to be signed in to select and order products</Text>
+          <Button label="Sign In" onPress={() => router.push('/auth')} fullWidth />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bgPage, paddingTop: insets.top }}>
       <ScreenHeader title="Select Product" showBack showLogo />
@@ -76,32 +92,7 @@ export default function ProductSelectionScreen() {
           ))}
         </View>
 
-        {/* Product Details */}
-        {selectedProduct ? (
-          <View style={styles.detailCard}>
-            <View style={[styles.tagBadge, { backgroundColor: selectedProduct.tagColor + '20', borderColor: selectedProduct.tagColor }]}>
-              <Text style={[styles.tagText, { color: selectedProduct.tagColor }]}>{selectedProduct.tag}</Text>
-            </View>
-            <View style={styles.specsRow}>
-              <View style={styles.spec}>
-                <Text style={styles.specLabel}>GCV</Text>
-                <Text style={styles.specValue}>{selectedProduct.gcv}</Text>
-              </View>
-              <View style={styles.spec}>
-                <Text style={styles.specLabel}>Ash Content</Text>
-                <Text style={styles.specValue}>{selectedProduct.ash}</Text>
-              </View>
-              <View style={styles.spec}>
-                <Text style={styles.specLabel}>Price</Text>
-                <Text style={[styles.specValue, { color: Colors.primary }]}>₹{selectedProduct.price}/kg</Text>
-              </View>
-            </View>
-            <Text style={styles.suitableText}>
-              <Text style={{ fontWeight: FontWeight.semibold }}>Suitable for: </Text>
-              {selectedProduct.suitableFor}
-            </Text>
-          </View>
-        ) : null}
+
 
         {/* Size Selection */}
         {selectedProduct ? (

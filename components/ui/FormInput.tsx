@@ -28,16 +28,18 @@ export function FormInput({
         styles.inputRow,
         focused && styles.focused,
         error ? styles.errorBorder : null,
+        props.multiline && styles.multilineRow,
       ]}>
         {icon ? (
-          <MaterialIcons name={icon} size={18} color={focused ? Colors.primary : Colors.textMedium} style={styles.icon} />
+          <MaterialIcons name={icon} size={18} color={focused ? Colors.primary : Colors.textMedium} style={[styles.icon, props.multiline && { marginTop: 2 }]} />
         ) : null}
         <TextInput
-          style={styles.input}
+          style={[styles.input, props.multiline && styles.multilineInput]}
           placeholderTextColor={Colors.textLight}
           secureTextEntry={isPassword && !showPw}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          textAlignVertical={props.multiline ? 'top' : 'center'}
           {...props}
         />
         {isPassword ? (
@@ -71,14 +73,13 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.borderLight,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    minHeight: 48,
+    height: 48,
   },
   focused: {
     borderColor: Colors.primary,
@@ -88,14 +89,12 @@ const styles = StyleSheet.create({
   },
   icon: {
     marginRight: 8,
-    marginTop: 9,
   },
   input: {
     flex: 1,
     fontSize: FontSize.body,
     color: Colors.textDark,
-    minHeight: 36,
-    paddingVertical: 6,
+    height: 48,
   },
   errorText: {
     color: Colors.red,
@@ -106,5 +105,16 @@ const styles = StyleSheet.create({
     color: Colors.textMedium,
     fontSize: FontSize.xs,
     marginTop: 4,
+  },
+  multilineRow: {
+    height: 'auto',
+    minHeight: 100,
+    alignItems: 'flex-start',
+    paddingVertical: Spacing.sm,
+  },
+  multilineInput: {
+    height: 'auto',
+    minHeight: 100 - Spacing.sm * 2,
+    paddingTop: 0,
   },
 });

@@ -1,21 +1,26 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '@/components/feature/Logo';
 import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 
 interface ScreenHeaderProps {
   title?: string;
+  showBack?: boolean;
   showLogo?: boolean;
   right?: React.ReactNode;
 }
 
-export function ScreenHeader({ title, showLogo = true, right }: ScreenHeaderProps) {
+export function ScreenHeader({ title, showBack = true, showLogo = true, right }: ScreenHeaderProps) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
       <View style={styles.left}>
+
         {showLogo ? <Logo /> : null}
       </View>
       {title ? <Text style={styles.title}>{title}</Text> : null}
@@ -40,6 +45,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flex: 1,
+  },
+  backBtn: {
+    padding: 2,
   },
   title: {
     fontSize: FontSize.body,

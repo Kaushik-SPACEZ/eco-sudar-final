@@ -1,7 +1,7 @@
 export const PRODUCTS = [
   {
     id: 'pellets',
-    name: 'Pellets',
+    name: 'Biomass Pellets',
     image: require('@/assets/images/product-pellets.png'),
     price: 8.5,
     unit: 'kg',
@@ -14,7 +14,7 @@ export const PRODUCTS = [
     sizes: ['6mm', '8mm', '10mm'],
   },
   {
-    id: 'stove',
+    id: 'briquettes',
     name: 'Biomass Stove',
     image: require('@/assets/images/product-stove.png'),
     price: 7.0,
@@ -23,23 +23,23 @@ export const PRODUCTS = [
     tagColor: '#1DB954',
     gcv: '3800 Kcal/kg',
     ash: '< 5%',
-    description: 'Efficient biomass stove for commercial and household use',
-    suitableFor: 'Commercial Kitchens, Hotels, Restaurants',
+    description: 'Compressed biomass briquettes for industrial use',
+    suitableFor: 'Industrial dryers, Brick kilns',
     sizes: ['1kg', '3kg', '5kg', '10kg', '15kg', '25kg'],
   },
   {
-    id: 'burner',
+    id: 'chips',
     name: 'Biomass Burner',
     image: require('@/assets/images/product-burner.png'),
     price: 5.5,
-    unit: 'kw',
+    unit: 'kg',
     tag: 'Best Value 💰',
     tagColor: '#3B82F6',
     gcv: '3500 Kcal/kg',
     ash: '< 7%',
-    description: 'Industrial biomass burner for large-scale energy needs',
-    suitableFor: 'Industrial Boilers, Dryers, Kilns',
-    sizes: ['50 kw', '100 kw', '150 kw', '200 kw', '250 kw', '300 kw'],
+    description: 'Natural wood chips for biomass gasifiers',
+    suitableFor: 'Gasifiers, Biomass boilers',
+    sizes: ['50kw', '100kw', '150kw', '200kw', '250kw', '300kw'],
   },
 ];
 

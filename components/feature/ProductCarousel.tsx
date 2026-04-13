@@ -61,7 +61,7 @@ export function ProductCarousel() {
               transition={200}
             />
             <Text style={styles.productName}>{product.name}</Text>
-            <Text style={styles.price}>₹{product.price}/{product.unit}</Text>
+            <Text style={styles.price}>₹{product.price}/kg</Text>
           </View>
         ))}
       </ScrollView>
@@ -112,11 +112,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     marginBottom: 8,
   },
-  viewLink: {
-    fontSize: FontSize.sm,
-    color: Colors.primary,
-    fontWeight: FontWeight.medium,
-  },
+
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',

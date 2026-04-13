@@ -13,6 +13,9 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="auth" />
+              <Stack.Screen name="product-selection" />
+              <Stack.Screen name="user-details" />
+              <Stack.Screen name="order-summary" />
             </Stack>
           </OrderProvider>
         </AuthProvider>
