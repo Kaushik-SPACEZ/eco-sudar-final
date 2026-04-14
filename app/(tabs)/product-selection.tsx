@@ -58,7 +58,7 @@ export default function ProductSelectionScreen() {
 
   if (!user) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.bgPage, paddingTop: insets.top }}>
+      <View style={{ flex: 1, backgroundColor: Colors.bgPage }}>
         <ScreenHeader title="Order Products" showLogo />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xxxl }}>
           <MaterialIcons name="person-outline" size={72} color={Colors.borderLight} />
@@ -71,7 +71,7 @@ export default function ProductSelectionScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.bgPage, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: Colors.bgPage }}>
       <ScreenHeader title="Select Product" showBack showLogo />
       <ScrollView
         contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 120 }}

@@ -13,7 +13,7 @@ interface FormInputProps extends TextInputProps {
 }
 
 export function FormInput({
-  label, required, icon, error, helperText, isPassword, ...props
+  label, required, icon, error, helperText, isPassword, style, ...props
 }: FormInputProps) {
   const [focused, setFocused] = useState(false);
   const [showPw, setShowPw] = useState(false);
@@ -31,15 +31,21 @@ export function FormInput({
         props.multiline && styles.multilineRow,
       ]}>
         {icon ? (
-          <MaterialIcons name={icon} size={18} color={focused ? Colors.primary : Colors.textMedium} style={[styles.icon, props.multiline && { marginTop: 2 }]} />
+          <MaterialIcons
+            name={icon}
+            size={18}
+            color={focused ? Colors.primary : Colors.textMedium}
+            style={[styles.icon, props.multiline && { marginTop: 2 }]}
+          />
         ) : null}
         <TextInput
-          style={[styles.input, props.multiline && styles.multilineInput]}
+          style={[styles.input, props.multiline && styles.multilineInput, style]}
           placeholderTextColor={Colors.textLight}
           secureTextEntry={isPassword && !showPw}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           textAlignVertical={props.multiline ? 'top' : 'center'}
+          scrollEnabled={props.multiline ? false : undefined}
           {...props}
         />
         {isPassword ? (
@@ -75,14 +81,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.borderLight,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
-    height: 48,
+    height: 50,
   },
   focused: {
     borderColor: Colors.primary,
+    borderWidth: 2,
   },
   errorBorder: {
     borderColor: Colors.red,
@@ -94,8 +101,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.body,
     color: Colors.textDark,
-    height: 48,
-  },
+    height: 50,
+    // kill default web browser outline/border
+    borderWidth: 0,
+    outlineWidth: 0,
+    outlineStyle: 'none',
+  } as any,
   errorText: {
     color: Colors.red,
     fontSize: FontSize.xs,
@@ -107,14 +118,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   multilineRow: {
-    height: 'auto',
-    minHeight: 100,
+    height: 'auto' as any,
+    minHeight: 110,
     alignItems: 'flex-start',
     paddingVertical: Spacing.sm,
   },
   multilineInput: {
-    height: 'auto',
-    minHeight: 100 - Spacing.sm * 2,
-    paddingTop: 0,
+    height: 'auto' as any,
+    minHeight: 90,
+    paddingTop: 4,
   },
 });

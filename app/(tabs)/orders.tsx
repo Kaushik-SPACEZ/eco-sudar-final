@@ -55,8 +55,8 @@ export default function OrdersScreen() {
 
   if (!user) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <Logo />
           <Text style={styles.headerTitle}>My Orders</Text>
         </View>
@@ -71,8 +71,8 @@ export default function OrdersScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Logo />
         <Text style={styles.headerTitle}>My Orders</Text>
       </View>
@@ -106,9 +106,10 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: Colors.white,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderGray,
+    minHeight: 56,
   },
   headerTitle: {
     fontSize: FontSize.lg,

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAlert } from '@/template';
+import { useRouter } from 'expo-router';
 import { Logo } from '@/components/feature/Logo';
 import { FormInput } from '@/components/ui/FormInput';
-import { SavingsCalculator } from '@/components/feature/SavingsCalculator';
 import { Button } from '@/components/ui/Button';
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme';
 
@@ -28,8 +28,13 @@ const FAQ = [
   },
 ];
 
+function validateEmail(email: string) {
+  return email.toLowerCase().endsWith('@gmail.com') && /^[^\s@]+@gmail\.com$/.test(email.toLowerCase());
+}
+
 export default function QueriesScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { showAlert } = useAlert();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -42,6 +47,10 @@ export default function QueriesScreen() {
       showAlert('Missing Fields', 'Please fill all required fields');
       return;
     }
+    if (!validateEmail(email)) {
+      showAlert('Invalid Email', 'Please enter a valid @gmail.com address');
+      return;
+    }
     setLoading(true);
     await new Promise(r => setTimeout(r, 1000));
     setLoading(false);
@@ -50,20 +59,29 @@ export default function QueriesScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { paddingTop: insets.top }]}
-      contentContainerStyle={{ paddingBottom: 100 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <Logo />
-        <Text style={styles.headerTitle}>Queries</Text>
-      </View>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <Logo />
+          <Text style={styles.headerTitle}>Queries</Text>
+        </View>
 
-      {/* Savings Calculator */}
-      <View style={[styles.card, { padding: 0, overflow: 'hidden' }]}>
-        <SavingsCalculator />
-      </View>
+        {/* Calculator Banner */}
+        <Pressable style={styles.calcBanner} onPress={() => router.push('/calculator')}>
+          <View style={styles.calcBannerLeft}>
+            <Text style={styles.calcBannerEmoji}>💰</Text>
+            <View>
+              <Text style={styles.calcBannerTitle}>Savings Calculator</Text>
+              <Text style={styles.calcBannerSub}>See how much you save by switching to biomass</Text>
+            </View>
+          </View>
+          <MaterialIcons name="chevron-right" size={24} color={Colors.primary} />
+        </Pressable>
 
       {/* Contact Info */}
       <View style={styles.contactBanner}>
@@ -139,28 +157,18 @@ export default function QueriesScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Contact Us</Text>
         {[
-          { icon: 'phone' as const, label: '+91 6379935362', title: 'Connect', action: 'tel:+916379935362' },
-          { icon: 'email' as const, label: 'ecosudarbiomasspellets@gmail.com', title: 'Support', action: 'mailto:ecosudarbiomasspellets@gmail.com' },
-          { icon: 'location-on' as const, label: 'Tamil Nadu, India', title: 'Location', action: null },
+          { icon: 'email' as const, label: 'ecosudarbiomasspellets@gmail.com' },
+          { icon: 'phone' as const, label: '+91 63799 35362' },
+          { icon: 'location-on' as const, label: '49/D, EB Avenue, Kanchipuram,\nTamil Nadu, India - 631502' },
         ].map(c => (
-          <Pressable 
-            key={c.label} 
-            style={styles.contactRow}
-            onPress={() => c.action && Linking.openURL(c.action)}
-            disabled={!c.action}
-          >
+          <View key={c.label} style={styles.contactRow}>
             <MaterialIcons name={c.icon} size={20} color={Colors.primary} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.contactLabel}>{c.title}</Text>
-              <Text style={[styles.contactValue, c.action && styles.contactValueClickable]}>{c.label}</Text>
-            </View>
-            {c.action && (
-              <MaterialIcons name="chevron-right" size={20} color={Colors.textMedium} />
-            )}
-          </Pressable>
+            <Text style={styles.contactValue}>{c.label}</Text>
+          </View>
         ))}
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -175,9 +183,10 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: Colors.white,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderGray,
+    minHeight: 56,
   },
   headerTitle: {
     fontSize: FontSize.lg,
@@ -250,18 +259,40 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
   },
-  contactLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textMedium,
-    marginBottom: 2,
-  },
   contactValue: {
     fontSize: FontSize.body,
     color: Colors.textDark,
   },
-  contactValueClickable: {
-    color: Colors.primary,
-    textDecorationLine: 'underline',
+  calcBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.primaryLight,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primaryBorder,
+  },
+  calcBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  calcBannerEmoji: {
+    fontSize: 28,
+  },
+  calcBannerTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.bold,
+    color: Colors.textDark,
+  },
+  calcBannerSub: {
+    fontSize: FontSize.xs,
+    color: Colors.textMedium,
+    marginTop: 2,
   },
 });

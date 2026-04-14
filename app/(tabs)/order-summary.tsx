@@ -31,11 +31,11 @@ export default function OrderSummaryScreen() {
 
   if (!currentProduct || !currentCustomer) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.container}>
         <ScreenHeader title="Order Summary" showBack showLogo />
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No order data found. Please start over.</Text>
-          <Button label="Go Back" onPress={() => router.back()} style={{ marginTop: 16 }} />
+          <Button label="Go Back" onPress={() => router.replace('/(tabs)')} style={{ marginTop: 16 }} />
         </View>
       </View>
     );
@@ -65,7 +65,7 @@ export default function OrderSummaryScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="Order Summary" showBack showLogo />
       <ScrollView
         contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 120 }}

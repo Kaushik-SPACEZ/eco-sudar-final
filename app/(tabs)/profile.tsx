@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -12,8 +12,8 @@ import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme
 const MENU_ITEMS = [
   { icon: 'inventory-2' as const, label: 'My Orders', route: '/orders' },
   { icon: 'help-outline' as const, label: 'Help & Support', route: '/queries' },
-  { icon: 'info-outline' as const, label: 'About Eco Sudar', route: null },
-  { icon: 'privacy-tip' as const, label: 'Privacy Policy', route: null },
+  { icon: 'info-outline' as const, label: 'About Eco Sudar', url: 'https://www.ecosudar.com/' },
+  { icon: 'privacy-tip' as const, label: 'Privacy Policy', route: '/privacy-policy' },
 ];
 
 export default function ProfileScreen() {
@@ -24,11 +24,11 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={styles.container}
       contentContainerStyle={{ paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Logo />
         <Text style={styles.headerTitle}>Profile</Text>
       </View>
@@ -67,7 +67,10 @@ export default function ProfileScreen() {
               <Pressable
                 key={item.label}
                 style={[styles.menuItem, i < MENU_ITEMS.length - 1 && styles.menuBorder]}
-                onPress={() => item.route ? router.push(item.route as any) : null}
+                onPress={() => {
+                  if ('url' in item && item.url) Linking.openURL(item.url);
+                  else if (item.route) router.push(item.route as any);
+                }}
               >
                 <MaterialIcons name={item.icon} size={22} color={Colors.primary} />
                 <Text style={styles.menuLabel}>{item.label}</Text>
@@ -114,9 +117,10 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: Colors.white,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderGray,
+    minHeight: 56,
   },
   headerTitle: {
     fontSize: FontSize.lg,

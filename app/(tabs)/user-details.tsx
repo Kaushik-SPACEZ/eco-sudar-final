@@ -16,7 +16,7 @@ import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme
 type UserType = 'customer' | 'dealer';
 
 function validateEmail(email: string) {
-  return email.toLowerCase().endsWith('@gmail.com') && /^[^\s@]+@gmail\.com$/.test(email.toLowerCase());
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function validatePhone(phone: string) {
@@ -99,7 +99,7 @@ export default function UserDetailsScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={[{ flex: 1, backgroundColor: Colors.bgPage }, { paddingTop: insets.top }]}>
+      <View style={{ flex: 1, backgroundColor: Colors.bgPage }}>
         <ScreenHeader title="Your Details" showBack showLogo />
         <ScrollView
           contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 120 }}
@@ -134,7 +134,7 @@ export default function UserDetailsScreen() {
               <FormInput label="Full Name" required icon="person" placeholder="Enter your full name" value={cName} onChangeText={setCName} error={errors.cName} />
               <FormInput label="Email Address" required icon="email" placeholder="Enter your email" value={cEmail} onChangeText={setCEmail} keyboardType="email-address" autoCapitalize="none" error={errors.cEmail} />
               <FormInput label="Phone Number" required icon="phone" placeholder="Enter your phone number" value={cPhone} onChangeText={setCPhone} keyboardType="phone-pad" error={errors.cPhone} />
-              <FormInput label="Delivery Address" required icon="location-on" placeholder="Enter your delivery address" value={cAddress} onChangeText={setCAddress} error={errors.cAddress} multiline numberOfLines={2} style={{ height: 72, paddingTop: 12 }} />
+              <FormInput label="Delivery Address" required icon="location-on" placeholder="Enter your delivery address" value={cAddress} onChangeText={setCAddress} error={errors.cAddress} multiline numberOfLines={2} />
               <FormInput label="City" required icon="location-city" placeholder="Enter your city" value={cCity} onChangeText={setCCity} error={errors.cCity} />
               <FormInput label="Pincode" required icon="local-post-office" placeholder="Enter your pincode" value={cPincode} onChangeText={setCPincode} keyboardType="number-pad" error={errors.cPincode} />
             </View>
@@ -146,7 +146,7 @@ export default function UserDetailsScreen() {
               <FormInput label="Business Email" required icon="email" placeholder="Enter business email" value={dEmail} onChangeText={setDEmail} keyboardType="email-address" autoCapitalize="none" error={errors.dEmail} />
               <FormInput label="Business Phone" required icon="phone" placeholder="Enter business phone" value={dPhone} onChangeText={setDPhone} keyboardType="phone-pad" error={errors.dPhone} />
               <FormInput label="UDYAM Number" required icon="tag" placeholder="12-character UDYAM number" value={dUdyam} onChangeText={setDUdyam} autoCapitalize="characters" maxLength={12} error={errors.dUdyam} helperText="12-character UDYAM registration number" />
-              <FormInput label="Business Address" required icon="location-on" placeholder="Enter business address" value={dAddress} onChangeText={setDAddress} error={errors.dAddress} multiline numberOfLines={2} style={{ height: 72, paddingTop: 12 }} />
+              <FormInput label="Business Address" required icon="location-on" placeholder="Enter business address" value={dAddress} onChangeText={setDAddress} error={errors.dAddress} multiline numberOfLines={2} />
               <FormInput label="City" required icon="location-city" placeholder="Enter city" value={dCity} onChangeText={setDCity} error={errors.dCity} />
               <FormInput label="Pincode" required icon="local-post-office" placeholder="Enter pincode" value={dPincode} onChangeText={setDPincode} keyboardType="number-pad" error={errors.dPincode} />
               <FormInput label="GST Number" icon="description" placeholder="Enter GST number (optional)" value={dGst} onChangeText={setDGst} autoCapitalize="characters" maxLength={15} error={errors.dGst} />

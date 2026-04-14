@@ -1,8 +1,7 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Pressable, Linking,
+  View, Text, ScrollView, StyleSheet, Pressable, ImageBackground, Linking,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -10,7 +9,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { Logo } from '@/components/feature/Logo';
 import { Button } from '@/components/ui/Button';
 import { ProductCarousel } from '@/components/feature/ProductCarousel';
-import { SavingsCalculator } from '@/components/feature/SavingsCalculator';
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '@/constants/theme';
 
 const STATS = [
@@ -29,7 +27,7 @@ const APPS = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
 
   return (
     <ScrollView
@@ -42,23 +40,13 @@ export default function HomeScreen() {
         <Logo size="md" />
         <View style={styles.headerActions}>
           {user ? (
-            <>
-              <Pressable
-                onPress={() => router.push('/orders')}
-                style={styles.myOrdersBtn}
-              >
-                <Text style={styles.myOrdersText}>My Orders</Text>
-              </Pressable>
-              <Pressable onPress={signOut} style={styles.signOutBtn}>
-                <Text style={styles.signOutText}>Sign Out</Text>
-              </Pressable>
-            </>
+            <View style={styles.avatarMini}>
+              <Text style={styles.avatarMiniText}>{user.name.charAt(0).toUpperCase()}</Text>
+            </View>
           ) : (
-            <>
-              <Pressable onPress={() => router.push('/auth')} style={styles.signInBtn}>
-                <Text style={styles.signInText}>Sign In</Text>
-              </Pressable>
-            </>
+            <Pressable onPress={() => router.push('/auth')} style={styles.signInBtn}>
+              <Text style={styles.signInText}>Sign In</Text>
+            </Pressable>
           )}
         </View>
       </View>
@@ -70,30 +58,23 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {/* Hero */}
-      <View style={styles.hero}>
-        <Image
-          source={require('@/assets/images/hero-biomass.png')}
-          style={styles.heroImage}
-          contentFit="cover"
-          transition={300}
-        />
-      </View>
-      <View style={styles.heroTextSection}>
-        <Text style={styles.heroTitle} numberOfLines={1} adjustsFontSizeToFit>Powering a Sustainable Future</Text>
-        <Text style={styles.heroSubtitle}>
-          India's leading biomass energy company transforming agro residue into clean fuel
-        </Text>
-      </View>
-
-      {/* Main Content Area (White Background) */}
-      <View style={[styles.section, { marginTop: 0, paddingTop: Spacing.lg }]}>
-        {/* Savings Calculator */}
-        <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg }}>
-          <SavingsCalculator compact />
+      {/* Hero — text overlaid on image */}
+      <ImageBackground
+        source={require('@/assets/images/hero-biomass.png')}
+        style={styles.hero}
+        imageStyle={{ opacity: 0.92 }}
+      >
+        <View style={styles.heroOverlay}>
+          <Text style={styles.heroTitle}>Powering a{'\n'}Sustainable Future</Text>
+          <Text style={styles.heroSubtitle}>
+            India's leading biomass energy company{'\n'}transforming agro residue into clean fuel
+          </Text>
         </View>
+      </ImageBackground>
 
-        {/* Carousel */}
+      {/* Main Content */}
+      <View style={[styles.section, { marginTop: 0, paddingTop: Spacing.lg }]}>
+
         <Text style={styles.sectionTitle}>Our Products</Text>
         <ProductCarousel />
       </View>
@@ -178,40 +159,28 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
-  myOrdersBtn: {
-    backgroundColor: Colors.primaryBg,
-    borderWidth: 1,
-    borderColor: Colors.primaryBorder,
-    borderRadius: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
+  avatarMini: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  myOrdersText: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.semibold,
-    color: Colors.primary,
-  },
-  signOutBtn: {
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    borderRadius: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-  },
-  signOutText: {
-    fontSize: FontSize.xs,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textMedium,
+  avatarMiniText: {
+    color: Colors.white,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
   },
   signInBtn: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.sm,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 16,
   },
   signInText: {
     fontSize: FontSize.sm,
-    fontWeight: FontWeight.semibold,
+    fontWeight: FontWeight.bold,
     color: Colors.white,
   },
   greeting: {
@@ -226,28 +195,27 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: Colors.textDark,
   },
+  // Hero — full image with text overlay
   hero: {
-    height: 130,
+    height: 200,
     width: '100%',
-    overflow: 'hidden',
+    justifyContent: 'flex-end',
   },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroTextSection: {
-    backgroundColor: Colors.primaryLight,
-    padding: Spacing.md,
+  heroOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.42)',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
   heroTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: FontWeight.bold,
-    color: Colors.textDark,
-    marginBottom: 6,
+    color: '#FFFFFF',
+    marginBottom: 4,
+    lineHeight: 30,
   },
   heroSubtitle: {
     fontSize: FontSize.sm,
-    color: Colors.textMedium,
+    color: 'rgba(255,255,255,0.88)',
     lineHeight: 18,
   },
   section: {

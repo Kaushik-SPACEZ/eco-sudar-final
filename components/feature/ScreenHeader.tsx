@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,14 +13,18 @@ interface ScreenHeaderProps {
   right?: React.ReactNode;
 }
 
-export function ScreenHeader({ title, showBack = true, showLogo = true, right }: ScreenHeaderProps) {
+export function ScreenHeader({ title, showBack = false, showLogo = true, right }: ScreenHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
       <View style={styles.left}>
-
+        {showBack ? (
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <MaterialIcons name="arrow-back" size={22} color={Colors.textDark} />
+          </Pressable>
+        ) : null}
         {showLogo ? <Logo /> : null}
       </View>
       {title ? <Text style={styles.title}>{title}</Text> : null}
@@ -39,6 +43,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderGray,
+    minHeight: 56,
   },
   left: {
     flexDirection: 'row',
@@ -50,7 +55,7 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   title: {
-    fontSize: FontSize.body,
+    fontSize: FontSize.md,
     fontWeight: FontWeight.semibold,
     color: Colors.textDark,
     position: 'absolute',
