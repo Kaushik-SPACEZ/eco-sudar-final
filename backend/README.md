@@ -1,128 +1,297 @@
-# EcoSudar Backend API
+# 🚀 EcoSudar Backend - API Proxy Server
 
-Node.js/Express backend API for the EcoSudar mobile application with MySQL database.
+This is a Node.js/Express proxy server that forwards requests to the Hostinger PHP backend API.
 
-## 🚀 Quick Start
+## 📋 Overview
 
-### Prerequisites
-- Node.js (v14 or higher)
-- MySQL database (Hostinger or any MySQL server)
-- npm or pnpm
+This backend acts as a **proxy layer** between your React Native app and the actual PHP backend hosted on Hostinger. It provides:
 
-### Installation
+- ✅ **23 API endpoints** (Authentication, Users, Products, Orders, Statistics)
+- ✅ **Rate limiting** for security
+- ✅ **Token extraction** middleware
+- ✅ **Error handling** and logging
+- ✅ **CORS configuration** for mobile apps
 
-1. **Navigate to backend directory:**
-```bash
-cd backend
+## 🏗️ Architecture
+
+```
+React Native App
+      ↓
+Node.js Proxy (This Server)
+      ↓
+Hostinger PHP Backend (api.ecosudar.com)
+      ↓
+MySQL Database
 ```
 
-2. **Install dependencies:**
+## 📦 Installation
+
+### 1. Install Dependencies
+
 ```bash
+cd backend
 npm install
 ```
 
-3. **Configure environment variables:**
+### 2. Configure Environment
+
+Create a `.env` file from the example:
+
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` file with your Hostinger MySQL credentials:
+Edit `.env` with your configuration:
+
 ```env
+# Server Configuration
 PORT=3000
-NODE_ENV=production
+NODE_ENV=development
 
-# Your Hostinger MySQL Database Details
-DB_HOST=your-hostinger-mysql-host.com
-DB_USER=your_database_user
-DB_PASSWORD=your_database_password
-DB_NAME=ecosudar_db
-DB_PORT=3306
+# API Configuration
+API_BASE_URL=https://api.ecosudar.com/api
+API_TIMEOUT=30000
 
-# Generate a secure random string for JWT_SECRET
-JWT_SECRET=your-super-secret-jwt-key-change-this
+# CORS Configuration
+ALLOWED_ORIGINS=http://localhost:8081,exp://192.168.1.100:8081
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 JWT_EXPIRES_IN=7d
 
-# Add your app's URL after deployment
-ALLOWED_ORIGINS=http://localhost:8081,exp://localhost:8081,https://your-app-domain.com
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
 ```
 
-4. **Set up database:**
+## 🚀 Running the Server
 
-Login to your Hostinger MySQL database (via phpMyAdmin or MySQL client) and run:
-```bash
-mysql -u your_user -p your_database < database/schema.sql
-```
+### Development Mode (with auto-reload)
 
-Or copy the contents of `database/schema.sql` and execute in phpMyAdmin.
-
-5. **Start the server:**
-
-Development mode (with auto-reload):
 ```bash
 npm run dev
 ```
 
-Production mode:
+### Production Mode
+
 ```bash
 npm start
 ```
 
-## 📡 API Endpoints
+The server will start on `http://localhost:3000`
 
-### Authentication
-- `POST /api/auth/signup` - Register new user
-- `POST /api/auth/signin` - Login user
-- `GET /api/auth/me` - Get current user (requires token)
+## 📚 API Endpoints
 
-### Products
-- `GET /api/products` - Get all products with sizes
-- `GET /api/products/:id` - Get single product
-- `GET /api/products/meta/categories` - Get product categories
+### 🔐 Authentication (8 endpoints)
 
-### Orders
-- `POST /api/orders` - Create new order
-- `GET /api/orders` - Get all orders (filtered by user if authenticated)
-- `GET /api/orders/:id` - Get single order details
-- `PATCH /api/orders/:id/status` - Update order status (requires authentication)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/auth/register` | ❌ | Register new user |
+| POST | `/api/auth/login` | ❌ | Login user |
+| POST | `/api/auth/logout` | ✅ | Logout user |
+| GET | `/api/auth/me` | ✅ | Get current user |
+| POST | `/api/auth/refresh` | ❌ | Refresh token |
+| POST | `/api/auth/forgot-password` | ❌ | Send OTP |
+| POST | `/api/auth/verify-otp` | ❌ | Verify OTP |
+| POST | `/api/auth/reset-password` | ✅ | Reset password |
 
-## 🔐 Authentication
+### 👤 User Management (6 endpoints)
 
-The API uses JWT (JSON Web Tokens) for authentication. Include the token in the Authorization header:
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/users/:id` | ✅ | Get user by ID |
+| GET | `/api/users/email/:email` | ✅ | Get user by email |
+| PUT | `/api/users/:id` | ✅ | Update user |
+| PUT | `/api/users/:id/password` | ✅ | Change password |
+| DELETE | `/api/users/:id` | ✅ | Delete user |
+| GET | `/api/users/:userId/orders` | ✅ | Get user orders |
+
+### 📦 Products (3 endpoints)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/products` | ❌ | Get all products |
+| GET | `/api/products/:id` | ❌ | Get single product |
+| GET | `/api/products/:id/configurations` | ❌ | Get configurations |
+
+### 🛒 Orders (4 endpoints)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/orders` | ✅ | Get all orders |
+| POST | `/api/orders` | ✅ | Create order |
+| GET | `/api/orders/:id` | ✅ | Get single order |
+| PUT | `/api/orders/:id/status` | ✅ | Update order status |
+
+### 📊 Statistics (2 endpoints)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/statistics/orders` | ✅ | Get order statistics |
+| GET | `/api/statistics/active-orders` | ✅ | Get active orders |
+
+## 🔒 Authentication
+
+All protected endpoints require a JWT token in the Authorization header:
 
 ```
-Authorization: Bearer YOUR_JWT_TOKEN
+Authorization: Bearer <your-jwt-token>
 ```
 
-## 📦 Deployment to Hostinger
+## 🛡️ Rate Limiting
 
-### Option 1: Using Node.js Hosting (if available)
+- **General:** 100 requests per 15 minutes
+- **Registration:** 3 requests per hour
+- **Login:** 5 requests per 15 minutes
+- **OTP:** 3 requests per 15 minutes
 
-1. Upload backend folder to your Hostinger account
-2. Install dependencies: `npm install --production`
-3. Set up environment variables in Hostinger control panel
-4. Start the server: `npm start`
+## 📁 Project Structure
 
-### Option 2: Using VPS/Cloud Hosting
+```
+backend/
+├── config/
+│   └── database.js          # Database configuration (not used in proxy mode)
+├── middleware/
+│   ├── extractToken.js      # JWT token extraction
+│   ├── rateLimiter.js       # Rate limiting middleware
+│   └── auth.js              # Legacy auth middleware
+├── routes/
+│   ├── auth.js              # Authentication routes (8 endpoints)
+│   ├── users.js             # User management routes (6 endpoints)
+│   ├── products.js          # Product routes (3 endpoints)
+│   ├── orders.js            # Order routes (4 endpoints)
+│   └── statistics.js        # Statistics routes (2 endpoints)
+├── utils/
+│   └── apiClient.js         # Axios client for Hostinger API
+├── database/
+│   ├── schema.sql           # Legacy schema
+│   └── schema_complete.sql  # Complete database schema for Hostinger
+├── .env.example             # Environment variables template
+├── .gitignore               # Git ignore file
+├── package.json             # Dependencies
+├── server.js                # Main server file
+├── API_DOCUMENTATION.md     # Legacy API docs
+├── API_ENDPOINTS_SPECIFICATION.md  # Complete API specification
+└── README.md                # This file
+```
 
-1. **Upload files via FTP/SFTP:**
-   - Upload the entire `backend` folder to your server
+## 🧪 Testing
 
-2. **SSH into your server:**
+### Health Check
+
 ```bash
-ssh your-username@your-server-ip
+curl http://localhost:3000/health
 ```
 
-3. **Navigate to backend directory:**
+### Test Registration
+
 ```bash
-cd /path/to/backend
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test User",
+    "email": "test@example.com",
+    "phone": "9876543210",
+    "password": "password123",
+    "user_type": "customer"
+  }'
 ```
 
-4. **Install dependencies:**
+### Test Login
+
 ```bash
-npm install --production
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "9876543210",
+    "password": "password123"
+  }'
 ```
 
-5. **Set up PM2 (Process Manager):**
+### Test Protected Endpoint
+
+```bash
+curl http://localhost:3000/api/auth/me \
+  -H "Authorization: Bearer <your-token>"
+```
+
+## 🔧 Configuration
+
+### CORS
+
+Update `ALLOWED_ORIGINS` in `.env` to include your app's origin:
+
+```env
+ALLOWED_ORIGINS=http://localhost:8081,exp://192.168.1.100:8081,http://your-domain.com
+```
+
+### API Base URL
+
+Point to your Hostinger backend:
+
+```env
+API_BASE_URL=https://api.ecosudar.com/api
+```
+
+### Rate Limiting
+
+Adjust rate limits in `.env`:
+
+```env
+RATE_LIMIT_WINDOW_MS=900000  # 15 minutes in milliseconds
+RATE_LIMIT_MAX_REQUESTS=100  # Max requests per window
+```
+
+## 📝 Error Handling
+
+All errors are returned in this format:
+
+```json
+{
+  "success": false,
+  "error": "Error message here",
+  "details": {
+    // Additional error details (optional)
+  }
+}
+```
+
+## 🚨 Common Issues
+
+### 1. CORS Errors
+
+**Problem:** Mobile app can't connect to server
+
+**Solution:** Add your app's origin to `ALLOWED_ORIGINS` in `.env`
+
+### 2. Connection Timeout
+
+**Problem:** Requests timeout
+
+**Solution:** Increase `API_TIMEOUT` in `.env` or check Hostinger backend status
+
+### 3. Rate Limit Exceeded
+
+**Problem:** Too many requests error
+
+**Solution:** Wait for the rate limit window to reset or adjust limits in `.env`
+
+## 📚 Documentation
+
+- **API Specification:** See `API_ENDPOINTS_SPECIFICATION.md`
+- **Database Schema:** See `database/schema_complete.sql`
+- **Legacy Docs:** See `API_DOCUMENTATION.md`
+
+## 🔄 Deployment
+
+### Option 1: Deploy with Node.js Server
+
+1. Set `NODE_ENV=production` in `.env`
+2. Update `API_BASE_URL` to production URL
+3. Run `npm start`
+
+### Option 2: Deploy with PM2
+
 ```bash
 npm install -g pm2
 pm2 start server.js --name ecosudar-api
@@ -130,111 +299,31 @@ pm2 save
 pm2 startup
 ```
 
-6. **Configure Nginx (reverse proxy):**
+### Option 3: Deploy with Docker
 
-Create Nginx config file:
-```nginx
-server {
-    listen 80;
-    server_name your-api-domain.com;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --production
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
 ```
-
-7. **Enable SSL with Let's Encrypt:**
-```bash
-sudo certbot --nginx -d your-api-domain.com
-```
-
-## 🗄️ Database Schema
-
-The database includes the following tables:
-- `users` - User accounts
-- `products` - Product catalog
-- `product_sizes` - Product size variations and pricing
-- `customers` - Customer information (both regular and dealers)
-- `orders` - Order records
-- `order_status_history` - Order status tracking
-
-## 🔧 Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| PORT | Server port | 3000 |
-| NODE_ENV | Environment | production |
-| DB_HOST | MySQL host | mysql.hostinger.com |
-| DB_USER | Database user | u123456_ecosudar |
-| DB_PASSWORD | Database password | your_password |
-| DB_NAME | Database name | u123456_ecosudar_db |
-| DB_PORT | MySQL port | 3306 |
-| JWT_SECRET | JWT signing key | random_secure_string |
-| JWT_EXPIRES_IN | Token expiry | 7d |
-| ALLOWED_ORIGINS | CORS origins | http://localhost:8081 |
-
-## 📝 API Response Format
-
-### Success Response
-```json
-{
-  "success": true,
-  "message": "Operation successful",
-  "data": {
-    // Response data
-  }
-}
-```
-
-### Error Response
-```json
-{
-  "success": false,
-  "message": "Error message",
-  "errors": [
-    // Validation errors (if any)
-  ]
-}
-```
-
-## 🧪 Testing the API
-
-Test the health endpoint:
-```bash
-curl http://localhost:3000/health
-```
-
-Test signup:
-```bash
-curl -X POST http://localhost:3000/api/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test User",
-    "email": "test@example.com",
-    "phone": "1234567890",
-    "password": "password123"
-  }'
-```
-
-## 🔒 Security Features
-
-- Helmet.js for security headers
-- CORS protection
-- JWT authentication
-- Password hashing with bcrypt
-- SQL injection prevention (parameterized queries)
-- Input validation with express-validator
 
 ## 📞 Support
 
-For issues or questions, please contact the development team.
+For issues or questions:
+- Check `API_ENDPOINTS_SPECIFICATION.md` for endpoint details
+- Review error logs in console
+- Verify Hostinger backend is running
 
 ## 📄 License
 
-Private - All rights reserved
+ISC
+
+---
+
+**Last Updated:** April 14, 2026  
+**Version:** 1.0.0  
+**Total Endpoints:** 23

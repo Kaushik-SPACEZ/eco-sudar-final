@@ -17,13 +17,19 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Products table
+-- Products table (Updated with all required fields from app)
 CREATE TABLE IF NOT EXISTS products (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     base_price DECIMAL(10, 2) NOT NULL,
     category VARCHAR(100),
+    gcv VARCHAR(50),
+    ash VARCHAR(50),
+    tag VARCHAR(100),
+    tag_color VARCHAR(20),
+    suitable_for TEXT,
+    image_url VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -108,20 +114,32 @@ CREATE TABLE IF NOT EXISTS order_status_history (
     INDEX idx_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insert sample products
-INSERT INTO products (name, description, base_price, category) VALUES
-('EcoSudar Premium', 'High-quality eco-friendly product', 1000.00, 'premium'),
-('EcoSudar Standard', 'Standard eco-friendly product', 750.00, 'standard'),
-('EcoSudar Basic', 'Basic eco-friendly product', 500.00, 'basic');
+-- Insert actual products from your app
+INSERT INTO products (name, description, base_price, category, gcv, ash, tag, tag_color, suitable_for, is_active) VALUES
+('Biomass Pellets', 'Premium quality biomass pellets made from agro residue', 8.50, 'pellets', '4200 Kcal/kg', '< 3%', 'Most Used 🔥', '#F59E0B', 'Boilers, Gasifiers, Direct combustion', TRUE),
+('Biomass Stove', 'Compressed biomass briquettes for industrial use', 7.00, 'briquettes', '3800 Kcal/kg', '< 5%', 'Eco Choice 🌿', '#1DB954', 'Industrial dryers, Brick kilns', TRUE),
+('Biomass Burner', 'Natural wood chips for biomass gasifiers', 5.50, 'chips', '3500 Kcal/kg', '< 7%', 'Best Value 💰', '#3B82F6', 'Gasifiers, Biomass boilers', TRUE);
 
--- Insert sample product sizes
-INSERT INTO product_sizes (product_id, size, price) VALUES
-(1, 'Small', 1000.00),
-(1, 'Medium', 1500.00),
-(1, 'Large', 2000.00),
-(2, 'Small', 750.00),
-(2, 'Medium', 1100.00),
-(2, 'Large', 1500.00),
-(3, 'Small', 500.00),
-(3, 'Medium', 750.00),
-(3, 'Large', 1000.00);
+-- Insert product sizes for Biomass Pellets
+INSERT INTO product_sizes (product_id, size, price, is_available) VALUES
+(1, '6mm', 8.50, TRUE),
+(1, '8mm', 8.50, TRUE),
+(1, '10mm', 8.50, TRUE);
+
+-- Insert product sizes for Biomass Stove
+INSERT INTO product_sizes (product_id, size, price, is_available) VALUES
+(2, '1kg', 7.00, TRUE),
+(2, '3kg', 21.00, TRUE),
+(2, '5kg', 35.00, TRUE),
+(2, '10kg', 70.00, TRUE),
+(2, '15kg', 105.00, TRUE),
+(2, '25kg', 175.00, TRUE);
+
+-- Insert product sizes for Biomass Burner
+INSERT INTO product_sizes (product_id, size, price, is_available) VALUES
+(3, '50kw', 275.00, TRUE),
+(3, '100kw', 550.00, TRUE),
+(3, '150kw', 825.00, TRUE),
+(3, '200kw', 1100.00, TRUE),
+(3, '250kw', 1375.00, TRUE),
+(3, '300kw', 1650.00, TRUE);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Pressable, TouchableOpacity,
+  View, Text, ScrollView, StyleSheet, Pressable, TouchableOpacity, TextInput,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -26,12 +26,30 @@ export default function ProductSelectionScreen() {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedPurpose, setSelectedPurpose] = useState<string | null>(null);
   const [selectedSubPurpose, setSelectedSubPurpose] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(100);
+  const [quantity, setQuantity] = useState(1);
+  const [quantityInput, setQuantityInput] = useState('1');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const selectedProduct = PRODUCTS.find(p => p.id === selectedProductId);
   const subtotal = selectedProduct ? selectedProduct.price * quantity : 0;
   const total = subtotal + DELIVERY_FEE;
+
+  const handleQuantityChange = (text: string) => {
+    setQuantityInput(text);
+    const num = parseInt(text);
+    if (!isNaN(num) && num > 0) {
+      setQuantity(num);
+    }
+  };
+
+  const handleQuantityBlur = () => {
+    if (quantity < 1) {
+      setQuantity(1);
+      setQuantityInput('1');
+    } else {
+      setQuantityInput(quantity.toString());
+    }
+  };
 
   const handlePurposeSelect = (id: string) => {
     setSelectedPurpose(id);
@@ -166,23 +184,37 @@ export default function ProductSelectionScreen() {
 
         {/* Quantity Stepper */}
         <View style={styles.section}>
-          <Text style={styles.label}>Quantity (kg)</Text>
+          <Text style={styles.label}>Quantity</Text>
           <View style={styles.stepper}>
             <Pressable
               style={styles.stepBtn}
-              onPress={() => setQuantity(q => Math.max(100, q - 50))}
+              onPress={() => {
+                const newQty = Math.max(1, quantity - 1);
+                setQuantity(newQty);
+                setQuantityInput(newQty.toString());
+              }}
             >
               <MaterialIcons name="remove" size={20} color={Colors.primary} />
             </Pressable>
-            <Text style={styles.stepValue}>{quantity}</Text>
+            <TextInput
+              style={styles.stepInput}
+              value={quantityInput}
+              onChangeText={handleQuantityChange}
+              onBlur={handleQuantityBlur}
+              keyboardType="number-pad"
+              selectTextOnFocus
+            />
             <Pressable
               style={styles.stepBtn}
-              onPress={() => setQuantity(q => q + 50)}
+              onPress={() => {
+                const newQty = quantity + 1;
+                setQuantity(newQty);
+                setQuantityInput(newQty.toString());
+              }}
             >
               <MaterialIcons name="add" size={20} color={Colors.primary} />
             </Pressable>
           </View>
-          <Text style={styles.minHint}>Minimum order: 100 kg</Text>
         </View>
 
         {/* Price Summary */}
@@ -370,6 +402,19 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
     minWidth: 60,
     textAlign: 'center',
+  },
+  stepInput: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.textDark,
+    minWidth: 80,
+    textAlign: 'center',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    borderRadius: Radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   minHint: {
     fontSize: FontSize.xs,

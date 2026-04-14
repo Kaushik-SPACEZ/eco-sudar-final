@@ -8,11 +8,11 @@ router.use(extractToken);
 router.use(requireAuth);
 
 // ============================================
-// 1. GET /api/orders
+// 1. GET /api/users/:id
 // ============================================
-router.get('/', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const result = await api.orders.getAll(req.token, req.query);
+    const result = await api.users.getById(req.token, req.params.id);
     res.json(result);
   } catch (error) {
     res.status(error.status || 500).json({
@@ -23,12 +23,27 @@ router.get('/', async (req, res) => {
 });
 
 // ============================================
-// 2. POST /api/orders
+// 2. GET /api/users/email/:email
 // ============================================
-router.post('/', async (req, res) => {
+router.get('/email/:email', async (req, res) => {
   try {
-    const result = await api.orders.create(req.token, req.body);
-    res.status(201).json(result);
+    const result = await api.users.getByEmail(req.token, req.params.email);
+    res.json(result);
+  } catch (error) {
+    res.status(error.status || 500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ============================================
+// 3. PUT /api/users/:id
+// ============================================
+router.put('/:id', async (req, res) => {
+  try {
+    const result = await api.users.update(req.token, req.params.id, req.body);
+    res.json(result);
   } catch (error) {
     res.status(error.status || 500).json({
       success: false,
@@ -39,11 +54,11 @@ router.post('/', async (req, res) => {
 });
 
 // ============================================
-// 3. GET /api/orders/:id
+// 4. PUT /api/users/:id/password
 // ============================================
-router.get('/:id', async (req, res) => {
+router.put('/:id/password', async (req, res) => {
   try {
-    const result = await api.orders.getById(req.token, req.params.id);
+    const result = await api.users.updatePassword(req.token, req.params.id, req.body);
     res.json(result);
   } catch (error) {
     res.status(error.status || 500).json({
@@ -54,11 +69,11 @@ router.get('/:id', async (req, res) => {
 });
 
 // ============================================
-// 4. PUT /api/orders/:id/status
+// 5. DELETE /api/users/:id
 // ============================================
-router.put('/:id/status', async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const result = await api.orders.updateStatus(req.token, req.params.id, req.body);
+    const result = await api.users.delete(req.token, req.params.id);
     res.json(result);
   } catch (error) {
     res.status(error.status || 500).json({
@@ -68,10 +83,12 @@ router.put('/:id/status', async (req, res) => {
   }
 });
 
-// Legacy PATCH endpoint for backward compatibility
-router.patch('/:id/status', async (req, res) => {
+// ============================================
+// 6. GET /api/users/:userId/orders
+// ============================================
+router.get('/:userId/orders', async (req, res) => {
   try {
-    const result = await api.orders.updateStatus(req.token, req.params.id, req.body);
+    const result = await api.users.getOrders(req.token, req.params.userId, req.query);
     res.json(result);
   } catch (error) {
     res.status(error.status || 500).json({

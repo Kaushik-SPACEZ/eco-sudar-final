@@ -82,10 +82,10 @@ export default function OrderSummaryScreen() {
           <Text style={styles.cardTitle}>Product Details</Text>
           <SummaryRow label="Product" value={currentProduct.name} />
           <SummaryRow label="Size" value={currentProduct.size} />
-          <SummaryRow label="Quantity" value={`${currentProduct.quantity} kg`} />
+          <SummaryRow label="Quantity" value={`${currentProduct.quantity}`} />
           <SummaryRow label="Purpose" value={currentProduct.purpose} />
           <SummaryRow label="Sub-Purpose" value={currentProduct.subPurpose} />
-          <SummaryRow label="Unit Price" value={`₹${currentProduct.price}/kg`} />
+          <SummaryRow label="Unit Price" value={`₹${currentProduct.price}`} />
         </View>
 
         {/* Customer/Dealer Details */}
