@@ -1,0 +1,256 @@
+### EcoSudar API Endpoint Tests
+### Use REST Client extension in VS Code or copy to Postman/Insomnia
+
+@baseUrl = http://localhost:3000
+@token = YOUR_TOKEN_HERE
+
+### ============================================
+### HEALTH CHECK
+### ============================================
+
+### Health Check
+GET {{baseUrl}}/health
+
+### ============================================
+### AUTHENTICATION ENDPOINTS (8)
+### ============================================
+
+### 1. Register New User
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "test@example.com",
+  "phone": "9876543880",
+  "password": "password123",
+  "user_type": "customer",
+  "company_name": "Test Company",
+  "address": "123 Test Street",
+  "city": "Chennai",
+  "state": "Tamil Nadu",
+  "pincode": "600001"
+}
+
+### 2. Login User (Phone)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "9876543880",
+  "password": "password123"
+}
+
+### 3. Login User (Email)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "tekaushst@example.com",
+  "password": "password123"
+}
+
+### 4. Get Current User (Protected)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEwLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzc2MTc0NzQxLCJleHAiOjE3NzYxNzU2NDEsIm5iZiI6MTc3NjE3NDc0MX0.hR6rnoWYY3wfjZMRf6N6A3PYHhBl7fSln-ceLtEoTRQ
+
+### 5. Refresh Token
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "YOUR_REFRESH_TOKEN_HERE"
+}
+
+### 6. Forgot Password (Send OTP)
+POST {{baseUrl}}/api/auth/forgot-password
+Content-Type: application/json
+
+{
+  "phone": "9876543210"
+}
+
+### 7. Verify OTP
+POST {{baseUrl}}/api/auth/verify-otp
+Content-Type: application/json
+
+{
+  "identifier": "9876543210",
+  "otp": "1234"
+}
+
+### 8. Reset Password (Protected)
+POST {{baseUrl}}/api/auth/reset-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "new_password": "newpassword123",
+  "confirm_password": "newpassword123"
+}
+
+### 9. Logout (Protected)
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "refresh_token": "YOUR_REFRESH_TOKEN_HERE"
+}
+
+### ============================================
+### USER MANAGEMENT ENDPOINTS (6)
+### ============================================
+
+### 10. Get User by ID (Protected)
+GET {{baseUrl}}/api/users/1
+Authorization: Bearer {{token}}
+
+### 11. Get User by Email (Protected)
+GET {{baseUrl}}/api/users/email/test@example.com
+Authorization: Bearer {{token}}
+
+### 12. Update User (Protected)
+PUT {{baseUrl}}/api/users/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Updated Name",
+  "email": "updated@example.com",
+  "phone": "9876543211",
+  "city": "Mumbai",
+  "state": "Maharashtra"
+}
+
+### 13. Change Password (Protected)
+PUT {{baseUrl}}/api/users/1/password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "current_password": "password123",
+  "new_password": "newpassword456",
+  "confirm_password": "newpassword456"
+}
+
+### 14. Delete User (Protected)
+DELETE {{baseUrl}}/api/users/1
+Authorization: Bearer {{token}}
+
+### 15. Get User Orders (Protected)
+GET {{baseUrl}}/api/users/1/orders?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### ============================================
+### PRODUCT ENDPOINTS (3)
+### ============================================
+
+### 16. Get All Products (Public)
+GET {{baseUrl}}/api/products?page=1&limit=10
+
+### 17. Get All Products with Filters (Public)
+GET {{baseUrl}}/api/products?product_type=pellets&is_available=true
+
+### 18. Get Single Product (Public)
+GET {{baseUrl}}/api/products/1
+
+### 19. Get Product Configurations (Public)
+GET {{baseUrl}}/api/products/1/configurations
+
+### 20. Get Product Configurations with Filters (Public)
+GET {{baseUrl}}/api/products/1/configurations?size=6mm&purpose=Commercial Kitchen
+
+### ============================================
+### ORDER ENDPOINTS (4)
+### ============================================
+
+### 21. Get All Orders (Protected)
+GET {{baseUrl}}/api/orders?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 22. Get Orders with Filters (Protected)
+GET {{baseUrl}}/api/orders?order_status=pending&payment_status=pending
+Authorization: Bearer {{token}}
+
+### 23. Create New Order (Protected)
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "delivery_address": "123 Main Street, Apartment 4B",
+  "delivery_city": "Chennai",
+  "delivery_state": "Tamil Nadu",
+  "delivery_pincode": "600001",
+  "payment_method": "COD",
+  "notes": "Please deliver between 9 AM - 5 PM",
+  "items": [
+    {
+      "product_id": 1,
+      "config_id": 1,
+      "quantity": 100,
+      "size": "6mm",
+      "purpose": "Commercial Kitchen",
+      "sub_purpose": "Food Processing Dryer"
+    }
+  ]
+}
+
+### 24. Get Single Order (Protected)
+GET {{baseUrl}}/api/orders/1
+Authorization: Bearer {{token}}
+
+### 25. Update Order Status (Protected)
+PUT {{baseUrl}}/api/orders/1/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "order_status": "confirmed",
+  "payment_status": "paid",
+  "notes": "Payment received via UPI"
+}
+
+### ============================================
+### STATISTICS ENDPOINTS (2)
+### ============================================
+
+### 26. Get Order Statistics (Protected)
+GET {{baseUrl}}/api/statistics/orders?days=30
+Authorization: Bearer {{token}}
+
+### 27. Get Order Statistics with Date Range (Protected)
+GET {{baseUrl}}/api/statistics/orders?from_date=2026-04-01&to_date=2026-04-14
+Authorization: Bearer {{token}}
+
+### 28. Get Active Orders (Protected)
+GET {{baseUrl}}/api/statistics/active-orders
+Authorization: Bearer {{token}}
+
+### ============================================
+### ERROR TESTING
+### ============================================
+
+### Test 404 - Invalid Route
+GET {{baseUrl}}/api/invalid-route
+
+### Test 401 - Missing Token
+GET {{baseUrl}}/api/auth/me
+
+### Test 401 - Invalid Token
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer invalid_token_here
+
+### Test Rate Limiting - Register (3 per hour)
+# Run this 4 times quickly to trigger rate limit
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Rate Test",
+  "email": "rate@test.com",
+  "phone": "1234567890",
+  "password": "test123",
+  "user_type": "customer"
+}
