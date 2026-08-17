@@ -1,0 +1,420 @@
+{
+  "generated_at": "2026-08-14",
+  "schema_version": "eco-sudar-k2 (branch: naresh)",
+  "sql_sources_read": [
+    "database/u952547820_ecosudar (10).sql",
+    "database/create_sales_billing_phase1.sql",
+    "database/create_procurement_phase1.sql",
+    "database/create_procurement_phase2_inventory.sql",
+    "database/create_smart_inventory.sql",
+    "database/create_hr_compliance_media.sql"
+  ],
+  "php_controllers_read": [
+    "api/controllers/admin/AdminInvoiceController.php",
+    "api/controllers/admin/AdminPayrollController.php",
+    "api/controllers/admin/AdminAttendanceController.php",
+    "api/controllers/admin/AdminExpenseController.php",
+    "api/controllers/admin/AdminPurchaseOrderController.php",
+    "api/controllers/admin/AdminPaymentController.php",
+    "api/controllers/admin/AdminGstComplianceController.php"
+  ],
+  "summary": {
+    "total_violations": 23,
+    "high_risk": 12,
+    "medium_risk": 8,
+    "low_risk": 3,
+    "justified_exceptions": 11,
+    "unused_columns": 10,
+    "schema_defects": 1
+  },
+
+  "violations": [
+    {
+      "id": "V01",
+      "table": "meetings",
+      "columns": ["attendees", "raci", "action_items"],
+      "normal_form": "1NF",
+      "description": "Three JSON columns store multi-value data in a single cell. attendees is a JSON array of user IDs, raci is a JSON object (R/A/C/I assignments), action_items is a JSON array of task objects. These cannot be queried, indexed, or joined without JSON path functions.",
+      "risk": "MEDIUM",
+      "php_methods": ["AdminMeetingController::store()", "AdminMeetingController::update()"],
+      "sql_fix": "CREATE TABLE meeting_attendees (\n  id INT NOT NULL AUTO_INCREMENT,\n  meeting_id INT NOT NULL,\n  user_id INT NOT NULL,\n  created_at DATETIME NOT NULL DEFAULT current_timestamp(),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_meeting_attendee (meeting_id, user_id),\n  CONSTRAINT fk_ma_meeting FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id) ON DELETE CASCADE,\n  CONSTRAINT fk_ma_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE\n);\n\nCREATE TABLE meeting_raci (\n  id INT NOT NULL AUTO_INCREMENT,\n  meeting_id INT NOT NULL,\n  user_id INT NOT NULL,\n  role ENUM('R','A','C','I') NOT NULL,\n  created_at DATETIME NOT NULL DEFAULT current_timestamp(),\n  PRIMARY KEY (id),\n  UNIQUE KEY uq_raci_meeting_user_role (meeting_id, user_id, role),\n  CONSTRAINT fk_raci_meeting FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id) ON DELETE CASCADE,\n  CONSTRAINT fk_raci_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE\n);\n\nCREATE TABLE meeting_action_items (\n  id INT NOT NULL AUTO_INCREMENT,\n  meeting_id INT NOT NULL,\n  description TEXT NOT NULL,\n  assigned_to INT NULL,\n  due_date DATE NULL,\n  status VARCHAR(20) NOT NULL DEFAULT 'open',\n  created_at DATETIME NOT NULL DEFAULT current_timestamp(),\n  PRIMARY KEY (id),\n  KEY idx_mai_meeting (meeting_id),\n  CONSTRAINT fk_mai_meeting FOREIGN KEY (meeting_id) REFERENCES meetings(meeting_id) ON DELETE CASCADE,\n  CONSTRAINT fk_mai_user FOREIGN KEY (assigned_to) REFERENCES users(user_id) ON DELETE SET NULL\n);\n\nALTER TABLE meetings DROP COLUMN attendees, DROP COLUMN raci, DROP COLUMN action_items;",
+      "php_change": "Replace JSON encode/decode of attendees/raci/action_items in AdminMeetingController::store() and ::update() with individual INSERT/DELETE rows in the new junction tables. Use a transaction wrapping the meeting row + child rows."
+    },
+    {
+      "id": "V02",
+      "table": "employees",
+      "columns": ["qualification_json"],
+      "normal_form": "1NF",
+      "description": "qualification_json (LONGTEXT) stores an array of qualification objects in JSON. Individual qualifications cannot be queried, filtered, or referenced by FK.",
+      "risk": "LOW",
+      "php_methods": ["AdminEmployeeController::store()", "AdminEmployeeController::update()"],
+      "sql_fix": "CREATE TABLE employee_qualifications (\n  id INT NOT NULL AUTO_INCREMENT,\n  employee_key VARCHAR(12) NOT NULL,\n  degree VARCHAR(120) NOT NULL,\n  institution VARCHAR(150) DEFAULT NULL,\n  year_of_passing INT DEFAULT NULL,\n  grade VARCHAR(20) DEFAULT NULL,\n  created_at DATETIME NOT NULL DEFAULT current_timestamp(),\n  PRIMARY KEY (id),\n  KEY idx_eq_employee (employee_key),\n  CONSTRAINT fk_eq_employee FOREIGN KEY (employee_key) REFERENCES employees(employee_key) ON DELETE CASCADE ON UPDATE CASCADE\n);\n\nALTER TABLE employees DROP COLUMN qualification_json;",
+      "php_change": "Replace JSON encode/decode in AdminEmployeeController::store() and ::update() with INSERT/DELETE rows in employee_qualifications. Migrate existing JSON data with a one-time migration script."
+    },
+    {
+      "id": "V03",
+      "table": "invoice_items",
+      "columns": ["line_total"],
+      "normal_form": "Rule A",
+      "description": "line_total = quantity * unit_price. Fully derivable; stored on every INSERT and UPDATE. If either source column is corrected directly in DB without going through PHP, the stored total silently lies.",
+      "risk": "HIGH",
+      "php_methods": [
+        "AdminInvoiceController::store()",
+        "AdminInvoiceController::storeGst()",
+        "AdminInvoiceController::update()",
+        "AdminInvoiceController::generateForOrder()"
+      ],
+      "sql_fix": "-- Option A: Drop the column and compute on read (recommended if no raw SQL reports):\nALTER TABLE invoice_items DROP COLUMN line_total;\n-- Then all SELECTs use: (quantity * unit_price) AS line_total\n\n-- Option B: Replace with a generated column (MySQL 5.7.6+):\nALTER TABLE invoice_items DROP COLUMN line_total;\nALTER TABLE invoice_items ADD COLUMN line_total DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED;",
+      "php_change": "Remove line_total from all INSERT/UPDATE payloads in AdminInvoiceController. Update SELECT queries that reference line_total directly — add (quantity * unit_price) AS line_total alias or use a generated column."
+    },
+    {
+      "id": "V04",
+      "table": "invoices",
+      "columns": ["subtotal", "gst_amount", "cgst_amount", "sgst_amount", "igst_amount", "total"],
+      "normal_form": "Rule A",
+      "description": "All six financial summary columns on the invoice header are derived from invoice_items and the gst_rate. subtotal = SUM(item.quantity * item.unit_price), gst_amount = subtotal * gst_rate/100, cgst/sgst = gst_amount/2 (intra-state), igst = gst_amount (inter-state), total = subtotal + gst_amount + delivery_fee - discount. Stored on every create and update. Staleness risk is HIGH because the controller also stores rounded integer totals for e-invoicing which can diverge from item-level recalculation.",
+      "risk": "HIGH",
+      "php_methods": [
+        "AdminInvoiceController::store()",
+        "AdminInvoiceController::storeGst()",
+        "AdminInvoiceController::update()",
+        "AdminInvoiceController::generateForOrder()"
+      ],
+      "sql_fix": "-- Recommended: keep these columns but make them GENERATED ALWAYS for consistency.\n-- First, verify MySQL version supports generated columns, then:\nALTER TABLE invoices\n  MODIFY COLUMN subtotal DECIMAL(12,2) GENERATED ALWAYS AS (\n    (SELECT COALESCE(SUM(ii.quantity * ii.unit_price),0) FROM invoice_items ii WHERE ii.invoice_id = invoice_id)\n  ) VIRTUAL,\n  MODIFY COLUMN gst_amount DECIMAL(12,2) GENERATED ALWAYS AS (\n    (SELECT COALESCE(SUM(ii.quantity * ii.unit_price),0) FROM invoice_items ii WHERE ii.invoice_id = invoice_id) * gst_rate / 100\n  ) VIRTUAL;\n-- NOTE: Correlated subqueries in generated columns require MySQL 8.0.19+. For MySQL 5.7, use a view instead:\nCREATE OR REPLACE VIEW v_invoice_totals AS\n  SELECT i.invoice_id,\n         COALESCE(SUM(ii.quantity * ii.unit_price), 0) AS subtotal,\n         COALESCE(SUM(ii.quantity * ii.unit_price), 0) * i.gst_rate / 100 AS gst_amount,\n         COALESCE(SUM(ii.quantity * ii.unit_price), 0) * i.gst_rate / 200 AS cgst_amount,\n         COALESCE(SUM(ii.quantity * ii.unit_price), 0) * i.gst_rate / 200 AS sgst_amount,\n         0 AS igst_amount,\n         COALESCE(SUM(ii.quantity * ii.unit_price), 0) * (1 + i.gst_rate/100) + COALESCE(i.delivery_fee,0) - COALESCE(i.discount,0) AS total\n  FROM invoices i\n  LEFT JOIN invoice_items ii ON ii.invoice_id = i.invoice_id\n  GROUP BY i.invoice_id;",
+      "php_change": "Pragmatic fix (lowest migration cost): keep columns but add a recalculate() helper that recomputes all six values from invoice_items before any GET response and asserts equality. On mismatch, log and auto-correct. This catches drift without rewriting the write path."
+    },
+    {
+      "id": "V05",
+      "table": "order_items",
+      "columns": ["total_price"],
+      "normal_form": "Rule A",
+      "description": "total_price = quantity * unit_price. Same pattern as invoice_items.line_total.",
+      "risk": "HIGH",
+      "php_methods": ["OrderController::store()", "OrderController::update()"],
+      "sql_fix": "ALTER TABLE order_items DROP COLUMN total_price;\nALTER TABLE order_items ADD COLUMN total_price DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED;",
+      "php_change": "Remove total_price from all INSERT/UPDATE in order creation. Use (quantity * unit_price) alias in SELECT."
+    },
+    {
+      "id": "V06",
+      "table": "orders",
+      "columns": ["total_amount"],
+      "normal_form": "Rule A",
+      "description": "total_amount = SUM(order_items.total_price) + delivery_fee. Stored on order creation. Any post-hoc adjustment to an order item without going through the controller leaves total_amount stale.",
+      "risk": "HIGH",
+      "php_methods": ["OrderController::store()", "OrderController::update()", "AdminOrderController::update()"],
+      "sql_fix": "CREATE OR REPLACE VIEW v_order_totals AS\n  SELECT o.order_id,\n         COALESCE(SUM(oi.quantity * oi.unit_price), 0) + COALESCE(o.delivery_fee, 0) AS total_amount\n  FROM orders o\n  LEFT JOIN order_items oi ON oi.order_id = o.order_id\n  GROUP BY o.order_id;",
+      "php_change": "Remove total_amount write from order creation controller; join v_order_totals on read. Or keep the column and add an integrity check that asserts stored == computed on every GET."
+    },
+    {
+      "id": "V07",
+      "table": "purchase_order_items",
+      "columns": ["line_total"],
+      "normal_form": "Rule A",
+      "description": "line_total = quantity * unit_price (pre-tax subtotal). Same pattern as invoice_items.line_total.",
+      "risk": "HIGH",
+      "php_methods": ["AdminPurchaseOrderController::store() via PurchaseOrder::create()", "AdminPurchaseOrderController::update() via PurchaseOrder::updateDraft()"],
+      "sql_fix": "ALTER TABLE purchase_order_items DROP COLUMN line_total;\nALTER TABLE purchase_order_items ADD COLUMN line_total DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED;",
+      "php_change": "Remove line_total from INSERT payload in PurchaseOrder::create() and PurchaseOrder::updateDraft()."
+    },
+    {
+      "id": "V08",
+      "table": "purchase_orders",
+      "columns": ["subtotal", "tax_amount", "total"],
+      "normal_form": "Rule A",
+      "description": "subtotal = SUM(purchase_order_items.line_total), tax_amount = SUM(line_total * gst_rate/100 per item), total = subtotal + tax_amount + other_charges. All three stored on create and update.",
+      "risk": "HIGH",
+      "php_methods": ["AdminPurchaseOrderController::store() via PurchaseOrder::create()", "AdminPurchaseOrderController::update() via PurchaseOrder::updateDraft()"],
+      "sql_fix": "CREATE OR REPLACE VIEW v_po_totals AS\n  SELECT po.po_id,\n         COALESCE(SUM(poi.quantity * poi.unit_price), 0) AS subtotal,\n         COALESCE(SUM(poi.quantity * poi.unit_price * poi.gst_rate / 100), 0) AS tax_amount,\n         COALESCE(SUM(poi.quantity * poi.unit_price), 0)\n           + COALESCE(SUM(poi.quantity * poi.unit_price * poi.gst_rate / 100), 0)\n           + COALESCE(po.other_charges, 0) AS total\n  FROM purchase_orders po\n  LEFT JOIN purchase_order_items poi ON poi.po_id = po.po_id\n  GROUP BY po.po_id;",
+      "php_change": "Remove subtotal/tax_amount/total from INSERT in PurchaseOrder::create(). Join v_po_totals on read."
+    },
+    {
+      "id": "V09",
+      "table": "sales_document_items",
+      "columns": ["line_total"],
+      "normal_form": "Rule A",
+      "description": "line_total = quantity * unit_price. Same pattern as invoice_items.line_total, for quotations/proformas.",
+      "risk": "HIGH",
+      "php_methods": ["AdminSalesDocumentController::store()", "AdminSalesDocumentController::update()"],
+      "sql_fix": "ALTER TABLE sales_document_items DROP COLUMN line_total;\nALTER TABLE sales_document_items ADD COLUMN line_total DECIMAL(12,2) GENERATED ALWAYS AS (quantity * unit_price) STORED;",
+      "php_change": "Remove line_total from INSERT/UPDATE in AdminSalesDocumentController."
+    },
+    {
+      "id": "V10",
+      "table": "sales_documents",
+      "columns": ["subtotal", "gst_amount", "cgst_amount", "sgst_amount", "igst_amount", "total"],
+      "normal_form": "Rule A",
+      "description": "Same six-column derived pattern as invoices. All six stored on create and update of quotations and proformas.",
+      "risk": "HIGH",
+      "php_methods": ["AdminSalesDocumentController::store()", "AdminSalesDocumentController::update()"],
+      "sql_fix": "CREATE OR REPLACE VIEW v_sales_document_totals AS\n  SELECT sd.document_id,\n         COALESCE(SUM(sdi.quantity * sdi.unit_price), 0) AS subtotal,\n         COALESCE(SUM(sdi.quantity * sdi.unit_price), 0) * sd.gst_rate / 100 AS gst_amount,\n         COALESCE(SUM(sdi.quantity * sdi.unit_price), 0) * sd.gst_rate / 200 AS cgst_amount,\n         COALESCE(SUM(sdi.quantity * sdi.unit_price), 0) * sd.gst_rate / 200 AS sgst_amount,\n         0 AS igst_amount,\n         COALESCE(SUM(sdi.quantity * sdi.unit_price), 0) * (1 + sd.gst_rate/100)\n           + COALESCE(sd.delivery_fee, 0) - COALESCE(sd.discount, 0) AS total\n  FROM sales_documents sd\n  LEFT JOIN sales_document_items sdi ON sdi.document_id = sd.document_id\n  GROUP BY sd.document_id;",
+      "php_change": "Remove all six totals from INSERT/UPDATE in AdminSalesDocumentController. Join view on read."
+    },
+    {
+      "id": "V11",
+      "table": "payroll",
+      "columns": ["earned_salary", "overtime_salary", "total_salary", "pf", "deductions", "net_pay"],
+      "normal_form": "Rule A",
+      "description": "All six are computed at payroll-run time: earned_salary = salary_per_day * present_days, overtime_salary = overtime_rate * overtime_hrs, total_salary = earned_salary + attend_bonus + overtime_salary + leave_salary + travel_allow, pf = earned_salary * (employees.pf_percent / 100), deductions = pf + professional_tax + deducted_advance, net_pay = total_salary - deductions. Stored by Payroll::upsert(). Payroll records are immutable after 'Paid' status so staleness risk is managed by workflow.",
+      "risk": "MEDIUM",
+      "php_methods": ["AdminPayrollController::run() via Payroll::upsert()"],
+      "sql_fix": "-- These are intentional snapshots of a payroll calculation. The correct fix is\n-- NOT to drop them, but to ensure the payroll status machine prevents edits once\n-- status = 'Processed' or 'Paid'. Add a DB-level check:\nALTER TABLE payroll ADD COLUMN is_locked TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Set to 1 when status reaches Paid; blocks further UPDATE';\n-- Then in PHP, check is_locked before any UPDATE.",
+      "php_change": "Keep storing computed values (this is the payslip snapshot). Add AdminPayrollController::update() guard: reject edits when status='Paid'. Add is_locked column and CHECK constraint in application layer."
+    },
+    {
+      "id": "V12",
+      "table": "payroll",
+      "columns": ["base_salary", "site_allowance", "da", "food_allowance", "travel_allow", "overtime_rate"],
+      "normal_form": "Rule C",
+      "description": "These six columns mirror the corresponding salary fields from employees at payroll-run time. If an employee's salary is corrected for a past month, the payroll row stores the old rates. Columns lack the '_snapshot' or '_at_time_of_' suffix that would signal they are intentional snapshots.",
+      "risk": "MEDIUM",
+      "php_methods": ["AdminPayrollController::run() via Payroll::upsert()"],
+      "sql_fix": "-- No schema change needed — these ARE justified snapshots (pay-period salary snapshot).\n-- Fix: rename columns to follow the snapshot naming convention:\nALTER TABLE payroll\n  CHANGE COLUMN base_salary     base_salary_snapshot     DECIMAL(10,2) NOT NULL DEFAULT 0.00,\n  CHANGE COLUMN site_allowance  site_allowance_snapshot  DECIMAL(10,2) NOT NULL DEFAULT 0.00,\n  CHANGE COLUMN da              da_snapshot              DECIMAL(10,2) NOT NULL DEFAULT 0.00,\n  CHANGE COLUMN food_allowance  food_allowance_snapshot  DECIMAL(10,2) NOT NULL DEFAULT 0.00,\n  CHANGE COLUMN travel_allow    travel_allow_snapshot    DECIMAL(10,2) NOT NULL DEFAULT 0.00,\n  CHANGE COLUMN overtime_rate   overtime_rate_snapshot   DECIMAL(10,2) NOT NULL DEFAULT 0.00;",
+      "php_change": "Update Payroll::upsert() to use the renamed column names. Update any SELECT queries in AdminPayrollController and reports that reference these columns."
+    },
+    {
+      "id": "V13",
+      "table": "purchase_orders",
+      "columns": ["vendor_state"],
+      "normal_form": "Rule C",
+      "description": "vendor_state mirrors vendors.state. If a vendor updates their state, existing POs show the new state rather than the state at PO creation time — which matters for GST (IGST vs CGST/SGST determination). Column name does not follow snapshot convention.",
+      "risk": "MEDIUM",
+      "php_methods": ["AdminPurchaseOrderController::store() via PurchaseOrder::create()"],
+      "sql_fix": "ALTER TABLE purchase_orders\n  CHANGE COLUMN vendor_state vendor_state_snapshot VARCHAR(80) DEFAULT NULL\n  COMMENT 'vendors.state at time of PO creation (GST determination)';\n-- Backfill from vendors:\nUPDATE purchase_orders po\n  JOIN vendors v ON v.vendor_id = po.vendor_id\n  SET po.vendor_state_snapshot = v.state\n  WHERE po.vendor_state_snapshot IS NULL;",
+      "php_change": "Update AdminPurchaseOrderController::store() to reference vendor_state_snapshot. Update PurchaseOrder::create() INSERT. No logic change needed — just the column name."
+    },
+    {
+      "id": "V14",
+      "table": "gst_compliance_periods",
+      "columns": ["sales_taxable", "sales_cgst", "sales_sgst", "sales_igst", "input_tax", "net_payable"],
+      "normal_form": "Rule B",
+      "description": "Six period-aggregate columns computed from invoices and payments data and stored via GstCompliance::saveSnapshot(). For status='draft'/'reviewed', these go stale immediately if an invoice is edited or a payment is voided after the snapshot. For status='filed'/'locked', staleness is intentional and legal. The risk window is the draft-to-filed gap.",
+      "risk": "HIGH",
+      "php_methods": ["AdminGstComplianceController::save() via GstCompliance::saveSnapshot()"],
+      "sql_fix": "-- Add a staleness indicator:\nALTER TABLE gst_compliance_periods\n  ADD COLUMN snapshot_at DATETIME NULL COMMENT 'When this snapshot was computed',\n  ADD COLUMN is_stale TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Set to 1 when any source invoice/payment changes after snapshot_at';\n-- Add triggers to mark stale when invoices or payments change:\nDROP TRIGGER IF EXISTS trg_invoice_stale_gst;\nCREATER TRIGGER trg_invoice_stale_gst AFTER UPDATE ON invoices\nFOR EACH ROW BEGIN\n  UPDATE gst_compliance_periods\n     SET is_stale = 1\n   WHERE period_key = DATE_FORMAT(NEW.created_at, '%Y-%m')\n     AND status IN ('draft', 'reviewed');\nEND;",
+      "php_change": "In AdminGstComplianceController::save(), record NOW() into snapshot_at. Show a warning in the API response when is_stale=1 and status is not 'filed'/'locked'. Expose an endpoint to re-snapshot before filing."
+    },
+    {
+      "id": "V15",
+      "table": "attendance",
+      "columns": ["hours_worked", "scheduled_hours", "late_minutes", "overtime_hours"],
+      "normal_form": "Rule A",
+      "description": "All four are computed by AdminAttendanceController::calculateMetrics() from check_in, check_out, and the shift definition, then written on every INSERT/UPDATE. Recomputing from check_in/check_out/shift is fully deterministic. Storing them is a read-performance optimization that is reasonable given payroll depends on these values daily.",
+      "risk": "LOW",
+      "php_methods": [
+        "AdminAttendanceController::calculateMetrics()",
+        "AdminAttendanceController::insertAttendanceRow()",
+        "AdminAttendanceController::updateAttendanceRow()",
+        "AdminAttendanceController::scan()",
+        "AdminAttendanceController::checkIn()",
+        "AdminAttendanceController::checkOut()",
+        "AdminAttendanceController::manual()",
+        "AdminAttendanceController::update()"
+      ],
+      "sql_fix": "-- These are acceptable denormalizations for payroll performance.\n-- No schema change recommended unless a full event-sourcing migration is planned.\n-- If removing: DROP COLUMN hours_worked, scheduled_hours, late_minutes, overtime_hours\n-- and compute from attendance_punches + shifts on each read.",
+      "php_change": "No change recommended. If computed values diverge from punch data (attendance_punches table), add an integrity check that recalculates and flags mismatches."
+    },
+    {
+      "id": "V16",
+      "table": "inventory_stock",
+      "columns": ["available_quantity", "is_low_stock", "health_score"],
+      "normal_form": "Rule A",
+      "description": "SQL comments in create_smart_inventory.sql explicitly document: available_quantity = 'current - reserved, maintained by service layer', is_low_stock = 'auto-set when available <= product.reorder_level', health_score = '0-100, computed'. All three are maintained by the inventory service layer on every movement. Any movement not routed through the service causes silent staleness.",
+      "risk": "MEDIUM",
+      "php_methods": ["AdminInventoryController (smart inventory service layer movements)"],
+      "sql_fix": "-- Add a DB trigger as a safety net for available_quantity:\nDROP TRIGGER IF EXISTS trg_sync_available_qty;\nCREATE TRIGGER trg_sync_available_qty BEFORE UPDATE ON inventory_stock\nFOR EACH ROW BEGIN\n  SET NEW.available_quantity = NEW.current_quantity - NEW.reserved_quantity;\n  SET NEW.is_low_stock = IF(\n    NEW.available_quantity <= (SELECT reorder_level FROM inventory_products WHERE inv_product_id = NEW.inv_product_id),\n    1, 0\n  );\nEND;",
+      "php_change": "Add DB trigger above as a safety net. No PHP change required — the trigger enforces consistency even if the service layer is bypassed."
+    },
+    {
+      "id": "V17",
+      "table": "inventory_stock_movements",
+      "columns": ["total_value"],
+      "normal_form": "Rule A",
+      "description": "SQL comment: 'quantity * unit_cost, stored for fast valuation rollups'. total_value = quantity * unit_cost. Movements are immutable (never updated), so staleness is not a risk. This is a performance optimization in a write-once ledger, which is acceptable.",
+      "risk": "LOW",
+      "php_methods": ["AdminInventoryController (movement recording)"],
+      "sql_fix": "ALTER TABLE inventory_stock_movements DROP COLUMN total_value;\nALTER TABLE inventory_stock_movements ADD COLUMN total_value DECIMAL(14,2) GENERATED ALWAYS AS (quantity * unit_cost) STORED;",
+      "php_change": "Remove total_value from INSERT in movement recording. Generated column computes it automatically."
+    },
+    {
+      "id": "V18",
+      "table": "inventory_reorder_suggestions",
+      "columns": ["current_stock", "reorder_level"],
+      "normal_form": "Rule C",
+      "description": "current_stock mirrors inventory_stock.available_quantity and reorder_level mirrors inventory_products.reorder_level, both captured at suggestion-generation time. These are valid snapshot values (you need to know what triggered the suggestion) but column names do not follow the _snapshot convention. Risk: queries joining this table may confuse snapshot values with live values.",
+      "risk": "MEDIUM",
+      "php_methods": ["AdminInventoryController (reorder suggestion generation)"],
+      "sql_fix": "ALTER TABLE inventory_reorder_suggestions\n  CHANGE COLUMN current_stock  current_stock_snapshot  DECIMAL(14,3) NOT NULL DEFAULT 0.000 COMMENT 'inventory_stock.available_quantity at suggestion time',\n  CHANGE COLUMN reorder_level  reorder_level_snapshot  DECIMAL(14,3) NOT NULL DEFAULT 0.000 COMMENT 'inventory_products.reorder_level at suggestion time';",
+      "php_change": "Update all references to current_stock and reorder_level in AdminInventoryController to use the renamed columns."
+    },
+    {
+      "id": "V19",
+      "table": "quotes",
+      "columns": ["annual_savings"],
+      "normal_form": "Rule A",
+      "description": "annual_savings = monthly_savings * 12. Transitive derived value. Note: in practice, both monthly_savings and annual_savings are NULL in 100% of live data rows — the formatted text goes into the message column instead. These columns appear to be unused scaffolding.",
+      "risk": "LOW",
+      "php_methods": ["AdminQuoteController::store()", "AdminQuoteController::update()"],
+      "sql_fix": "ALTER TABLE quotes DROP COLUMN annual_savings;\n-- Compute on read: SELECT monthly_savings * 12 AS annual_savings",
+      "php_change": "Remove annual_savings from all INSERT/UPDATE. Compute monthly_savings * 12 in API response serializer if the frontend needs it."
+    },
+    {
+      "id": "V20",
+      "table": "quote_requests",
+      "columns": ["annual_savings"],
+      "normal_form": "Rule A",
+      "description": "Same pattern as quotes.annual_savings: annual_savings = monthly_savings * 12.",
+      "risk": "LOW",
+      "php_methods": ["AdminQuoteController (quote_requests variant)"],
+      "sql_fix": "ALTER TABLE quote_requests DROP COLUMN annual_savings;\n-- Compute on read: SELECT monthly_savings * 12 AS annual_savings",
+      "php_change": "Same as V19."
+    },
+    {
+      "id": "V21",
+      "table": "expenses",
+      "columns": ["vendor"],
+      "normal_form": "3NF",
+      "description": "expenses.vendor is a free-text VARCHAR(150) field, not a FK to vendors(vendor_id). The vendors table exists (created by create_procurement_phase1.sql). The same vendor name can be entered with different spellings across expense rows, preventing accurate per-vendor spend analysis. AdminExpenseController::store() validates vendor as 'required|string|min:2|max:150' with no FK lookup.",
+      "risk": "MEDIUM",
+      "php_methods": [
+        "AdminExpenseController::store()",
+        "AdminExpenseController::update()"
+      ],
+      "sql_fix": "-- Add a nullable vendor_id FK column (nullable because some expenses may be for non-vendor payees):\nALTER TABLE expenses\n  ADD COLUMN vendor_id INT NULL AFTER vendor,\n  ADD CONSTRAINT fk_expense_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(vendor_id) ON DELETE SET NULL;\n-- Keep vendor VARCHAR as a fallback for ad-hoc payees that are not in vendors table.",
+      "php_change": "Update AdminExpenseController::store() and ::update() to accept an optional vendor_id. When vendor_id is provided, populate both vendor (denormalized name) and vendor_id. Update filters to support filtering by vendor_id."
+    },
+    {
+      "id": "V22",
+      "table": "payroll",
+      "columns": ["hra", "allowances"],
+      "normal_form": "Rule A",
+      "description": "Both columns are 0.00 in every row of live data. They are computed columns (hra = HRA component, allowances = other allowances sum) that the Payroll::upsert() method does not populate. Either the payroll model never implemented HRA/allowances, or they are computed to zero because employees do not have HRA in their salary structure. These are likely unused dead columns.",
+      "risk": "MEDIUM",
+      "php_methods": ["AdminPayrollController::run() via Payroll::upsert()"],
+      "sql_fix": "-- After confirming no business plans to use these:\nALTER TABLE payroll DROP COLUMN hra, DROP COLUMN allowances;",
+      "php_change": "Remove hra and allowances from Payroll::upsert() INSERT/UPDATE. Update payslip templates and report queries that reference these columns."
+    },
+    {
+      "id": "V23",
+      "table": "payroll",
+      "columns": ["total_salay"],
+      "normal_form": "Schema Defect",
+      "description": "Column is a misspelling of 'total_salary'. The correctly-spelled column total_salary also exists in the same table. total_salay = base_salary + site_allowance + da + food_allowance + travel_allow (the gross CTC before attendance adjustment). Having two columns named similarly but computing different things is a maintenance trap. total_salay should be renamed to gross_ctc or payable_ctc_snapshot to disambiguate.",
+      "risk": "HIGH",
+      "php_methods": ["AdminPayrollController::run() via Payroll::upsert()"],
+      "sql_fix": "ALTER TABLE payroll CHANGE COLUMN total_salay gross_ctc_snapshot DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'base_salary+site_allowance+da+food_allowance+travel_allow at payroll-run time';",
+      "php_change": "Update Payroll::upsert() to use gross_ctc_snapshot. Update any SELECT/report queries referencing total_salay."
+    }
+  ],
+
+  "justified_exceptions": [
+    {
+      "table": "invoices",
+      "columns": ["customer_name", "customer_gstin", "customer_state", "customer_address", "customer_city", "customer_pincode"],
+      "reason": "Legally required GST invoice snapshot. Under CGST Act 2017, a tax invoice must show the buyer's name, address, and GSTIN as they were at the time of supply. Changing users.name or users.gst_number must not retroactively alter issued invoices.",
+      "pattern": "document-level customer snapshot"
+    },
+    {
+      "table": "sales_documents",
+      "columns": ["customer_name", "customer_email", "customer_phone", "customer_gstin", "customer_state", "customer_address", "customer_city", "customer_pincode", "customer_country"],
+      "reason": "Quotations and proformas also require customer details at issue time. A converted quotation that becomes an invoice must retain the original customer data used for pricing.",
+      "pattern": "document-level customer snapshot"
+    },
+    {
+      "table": "invoice_items",
+      "columns": ["unit_price", "gst_rate"],
+      "reason": "Price and GST rate at time of invoice. Products.base_price and gst_rate may change over time; the invoice must preserve what was charged.",
+      "pattern": "price_at_time_of_invoice"
+    },
+    {
+      "table": "order_items",
+      "columns": ["unit_price", "size", "purpose", "sub_purpose"],
+      "reason": "Price and product configuration at time of order. product_configurations.price may change; the order must preserve what was agreed.",
+      "pattern": "price_at_time_of_order"
+    },
+    {
+      "table": "payroll",
+      "columns": ["salary_per_day", "leave_credit", "leave_availed_this_month"],
+      "reason": "salary_per_day is the rate used for this payroll period (base_salary / working_days). It must be immutable once the payslip is issued. leave_credit and leave_availed are period-specific accrual state, not derived from a single source column.",
+      "pattern": "rate_at_payroll_run"
+    },
+    {
+      "table": "inventory_reorder_suggestions",
+      "columns": ["current_stock", "reorder_level"],
+      "reason": "Snapshot of stock levels that triggered the suggestion. Required for audit trail of why a suggestion was generated. RECOMMENDATION: rename to current_stock_snapshot and reorder_level_snapshot to follow project naming convention.",
+      "pattern": "snapshot (naming convention non-conformant)"
+    }
+  ],
+
+  "unused_columns": [
+    {
+      "table": "payroll",
+      "column": "hra",
+      "evidence": "0.00 in all 20 live INSERT rows. employees table has no hra column; Payroll::upsert() does not populate it.",
+      "recommendation": "DROP COLUMN hra after confirming no planned use."
+    },
+    {
+      "table": "payroll",
+      "column": "allowances",
+      "evidence": "0.00 in all 20 live INSERT rows. No PHP controller writes a non-zero value.",
+      "recommendation": "DROP COLUMN allowances after confirming no planned use."
+    },
+    {
+      "table": "payroll",
+      "column": "professional_tax",
+      "evidence": "0.00 in all 20 live INSERT rows. Professional tax is state-specific and not configured for current employees.",
+      "recommendation": "Keep column (legitimate future use for PT-applicable states) but document as currently unpopulated."
+    },
+    {
+      "table": "quotes",
+      "column": "monthly_savings",
+      "evidence": "NULL in all 44 live INSERT rows. The formatted savings text is stored in the message column instead (e.g. 'saving ₹4533/month').",
+      "recommendation": "DROP COLUMN — data is in message. If structured analysis is ever needed, parse message or capture at creation time."
+    },
+    {
+      "table": "quotes",
+      "column": "annual_savings",
+      "evidence": "NULL in all 44 live INSERT rows.",
+      "recommendation": "DROP COLUMN (also covered by V19)."
+    },
+    {
+      "table": "quotes",
+      "column": "biomass_cost",
+      "evidence": "NULL in all 44 live INSERT rows.",
+      "recommendation": "DROP COLUMN or populate from the frontend calculator before submitting."
+    },
+    {
+      "table": "quotes",
+      "column": "current_cost",
+      "evidence": "NULL in all 44 live INSERT rows.",
+      "recommendation": "DROP COLUMN or populate from the frontend calculator."
+    },
+    {
+      "table": "quotes",
+      "column": "current_fuel",
+      "evidence": "NULL in all 44 live INSERT rows.",
+      "recommendation": "DROP COLUMN or populate from the frontend calculator."
+    },
+    {
+      "table": "quotes",
+      "column": "quantity_per_month",
+      "evidence": "NULL in all 44 live INSERT rows.",
+      "recommendation": "DROP COLUMN or populate from the frontend calculator."
+    },
+    {
+      "table": "quotes",
+      "column": "product",
+      "evidence": "NULL in all 44 live INSERT rows. Product context is in the message text.",
+      "recommendation": "DROP COLUMN or replace with product_id FK to products table."
+    }
+  ],
+
+  "schema_defects": [
+    {
+      "id": "SD01",
+      "table": "payroll",
+      "defect": "Column name typo: total_salay should be total_salary, but total_salary already exists as a different column in the same table. total_salay = gross CTC (base+allowances before attendance adjustment); total_salary = net earned salary for the period. Two similar column names computing different financial concepts creates developer confusion and likely causes copy-paste errors in reports.",
+      "sql_fix": "ALTER TABLE payroll CHANGE COLUMN total_salay gross_ctc_snapshot DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Gross CTC = base_salary+site_allowance+da+food_allowance+travel_allow at payroll-run time';",
+      "risk": "HIGH"
+    }
+  ]
+}

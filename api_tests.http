@@ -1,0 +1,41 @@
+### ECO SUDAR MINIMAL QUERIES & QUOTES TEST SUITE ###
+# Note: You must deploy your API changes to Hostinger first!
+# Replace {{token}} with a valid logged-in user token to test.
+
+@baseUrl = https://api.ecosudar.com/api
+@token = your_jwt_token_here
+
+---
+
+### [QUERIES] Test 1: Positive - Create Query (Guest / No Auth required)
+POST {{baseUrl}}/queries
+Content-Type: application/json
+
+{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "message": "I would like to know more about biomass pellets pricing for bulk orders."
+}
+# EXPECTED: 201 Created (query_id, query_number, status: pending)
+
+---
+
+### [QUOTES] Test 2: Positive - Create Quote (Auth Required)
+POST {{baseUrl}}/quotes
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Jane Smith",
+  "email": "jane@company.com",
+  "phone": "9876543210",
+  "message": "Customer uses 100 kg of LPG at ₹85/kg (₹8,500/month). They need 283 kg/month of Biomass Pellets (≈ ₹3,967/month), saving ₹4,533/month."
+}
+# EXPECTED: 201 Created (quote_id, quote_number, status: pending)
+
+---
+
+### [ADMIN] Test 3: Positive - Get Admins List
+GET {{baseUrl}}/admin/quotes
+Authorization: Bearer admin_jwt_token_here
+# EXPECTED: 200 OK (Returns paginated quotes history)
