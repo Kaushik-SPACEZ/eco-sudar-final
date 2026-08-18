@@ -1,4 +1,4 @@
-import { Search, Download, Eye, Plus, FileText, Loader2, Pencil, Trash2, CreditCard, IndianRupee, ArrowUp, ArrowDown, ArrowUpDown, Truck } from "lucide-react";
+import { Search, Download, Eye, Plus, FileText, Loader2, Pencil, Trash2, CreditCard, IndianRupee, ArrowUp, ArrowDown, ArrowUpDown, Truck, Wallet, Clock } from "lucide-react";
 import { EwayBillDialog } from "@/components/EwayBillDialog";
 import { type EwayInvoiceData } from "@/lib/ewayBill";
 import { StatCard } from "@/components/StatCard";
@@ -562,6 +562,9 @@ export default function Invoices() {
   const currentCounted = invoices.filter(inv => !isCancelled(inv));
   const currentTotal = currentCounted.reduce((s, inv) => s + inv.totalValue, 0);
   const pastTotal = historicalSum; // DB-wide sum (all pages, Cancelled excluded server-side)
+  // Receivables view for the sales dashboard: collected vs still-owed on loaded invoices.
+  const collectedTotal = currentCounted.reduce((s, inv) => s + inv.amountPaidValue, 0);
+  const outstandingTotal = currentCounted.reduce((s, inv) => s + inv.balanceDueValue, 0);
 
 const viewInvoice = async (inv: Invoice) => {
     try {
@@ -686,6 +689,13 @@ const viewInvoice = async (inv: Invoice) => {
             <Plus className="h-4 w-4" /> New Invoice
           </Button>
         </div>
+      </div>
+
+      {/* Sales dashboard — receivables: total invoiced, collected, and outstanding */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard title="Total Invoiced" value={inr(currentTotal)} subtitle={`${currentCounted.length} invoice(s) in view`} icon={IndianRupee} />
+        <StatCard title="Paid" value={inr(collectedTotal)} subtitle="collected from customers" icon={Wallet} subtitleColor="primary" />
+        <StatCard title="Outstanding" value={inr(outstandingTotal)} subtitle="still receivable" icon={Clock} subtitleColor={outstandingTotal > 0 ? "muted" : "primary"} />
       </div>
 
 

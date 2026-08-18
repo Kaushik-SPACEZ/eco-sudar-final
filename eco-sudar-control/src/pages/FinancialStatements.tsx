@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Wallet, ArrowDownToLine, ArrowUpFromLine, FileDown, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import { Wallet, ArrowDownToLine, ArrowUpFromLine, FileDown, FileText, TrendingUp, TrendingDown, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,11 +12,25 @@ import {
   type CashFlow, type AgeingSummary, type ReceivableRow, type PayableRow,
 } from "@/lib/api/finance";
 import { exportToExcel, type ExportColumn } from "@/lib/exporters";
+import { downloadReportPdf, inrText, inrCompact } from "@/lib/reportPdf";
 
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const today = () => new Date().toISOString().slice(0, 10);
 const monthsAgo = (m: number) => { const d = new Date(); d.setMonth(d.getMonth() - m); return d.toISOString().slice(0, 10); };
 const err = (e: unknown, f: string) => (e instanceof Error ? e.message : f);
+
+// Ageing-bucket table shared by the receivables & payables PDF exports.
+const BUCKET_COLS = [
+  { header: "Bucket", key: "bucket" },
+  { header: "Amount", key: (r: { amount: number }) => inrText(r.amount), align: "right" as const },
+];
+const bucketRows = (s: AgeingSummary) => [
+  { bucket: "Current", amount: s.current },
+  { bucket: "1–30 days", amount: s.days_1_30 },
+  { bucket: "31–60 days", amount: s.days_31_60 },
+  { bucket: "61–90 days", amount: s.days_61_90 },
+  { bucket: "90+ days", amount: s.days_over_90 },
+];
 
 type Section = "cash-flow" | "receivables" | "payables";
 const SECTIONS: { key: Section; label: string; desc: string; icon: typeof Wallet }[] = [
@@ -68,6 +82,7 @@ function CashFlowView() {
   const [to, setTo] = useState(today());
   const [data, setData] = useState<CashFlow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -78,11 +93,64 @@ function CashFlowView() {
 
   const maxBar = Math.max(1, ...(data?.series ?? []).flatMap((s) => [s.inflow, s.outflow]));
 
+  const doExportPdf = async () => {
+    if (!data) { toast.error("Nothing to export"); return; }
+    setPdfBusy(true);
+    try {
+      const sumIn = data.series.reduce((s, r) => s + r.inflow, 0);
+      const sumOut = data.series.reduce((s, r) => s + r.outflow, 0);
+      const sumCat = data.expense_categories.reduce((s, r) => s + r.amount, 0);
+      await downloadReportPdf({
+        title: "Cash Flow Statement",
+        subtitle: `Period: ${from} → ${to}`,
+        meta: [`${data.series.length} months`],
+        kpis: [
+          { label: "Cash In", value: inrCompact(data.inflow), tone: "positive" },
+          { label: "Cash Out", value: inrCompact(data.outflow), tone: "negative" },
+          { label: "Net Cash", value: inrCompact(data.net), tone: data.net >= 0 ? "positive" : "negative" },
+          { label: "Operating Expenses", value: inrCompact(data.operating_expenses), tone: "muted" },
+        ],
+        tables: [
+          {
+            title: "Monthly in vs out",
+            columns: [
+              { header: "Month", key: "month" },
+              { header: "Cash In", key: (r: { inflow: number }) => inrText(r.inflow), align: "right" },
+              { header: "Cash Out", key: (r: { outflow: number }) => inrText(r.outflow), align: "right" },
+              { header: "Net", key: (r: { inflow: number; outflow: number }) => inrText(r.inflow - r.outflow), align: "right" },
+            ],
+            rows: data.series,
+            totalsRow: ["Total", inrText(sumIn), inrText(sumOut), inrText(sumIn - sumOut)],
+          },
+          {
+            title: "Outflow by expense category",
+            columns: [
+              { header: "Category", key: "category" },
+              { header: "Amount", key: (r: { amount: number }) => inrText(r.amount), align: "right" },
+            ],
+            rows: data.expense_categories,
+            totalsRow: ["Total", inrText(sumCat)],
+          },
+        ],
+        filename: `cash-flow-${from}-to-${to}`,
+        orientation: "portrait",
+        note: "Cash movement from recorded payments and direct operating expenses.",
+      });
+    } catch (e) {
+      toast.error(err(e, "PDF export failed"));
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border p-4 shadow-sm flex flex-wrap items-end gap-3">
         <div><Label className="text-xs">From</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" /></div>
         <div><Label className="text-xs">To</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" /></div>
+        <Button variant="outline" size="sm" className="ml-auto" onClick={doExportPdf} disabled={pdfBusy || !data}>
+          <FileText className="h-4 w-4" /> Download PDF
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -170,6 +238,7 @@ function ReceivablesView() {
   const [asOf, setAsOf] = useState(today());
   const [data, setData] = useState<{ summary: AgeingSummary; rows: ReceivableRow[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -189,13 +258,54 @@ function ReceivablesView() {
     exportToExcel({ sheetName: "Receivables", columns, rows: data.rows, filename: "receivables-ageing" });
   };
 
+  const doExportPdf = async () => {
+    if (!data?.rows.length) { toast.error("Nothing to export"); return; }
+    setPdfBusy(true);
+    try {
+      await downloadReportPdf({
+        title: "Receivables Ageing",
+        subtitle: `As of ${asOf}`,
+        meta: [`${data.rows.length} outstanding invoices`],
+        kpis: [{ label: "Total Due", value: inrCompact(data.summary.total_due), tone: "brand" }],
+        tables: [
+          { title: "Ageing buckets", columns: BUCKET_COLS, rows: bucketRows(data.summary), totalsRow: ["Total due", inrText(data.summary.total_due)] },
+          {
+            title: "Outstanding invoices",
+            columns: [
+              { header: "Invoice", key: "invoice_number" },
+              { header: "Customer", key: "customer_name" },
+              { header: "Due", key: "due_on" },
+              { header: "Total", key: (r: ReceivableRow) => inrText(r.total), align: "right" },
+              { header: "Paid", key: (r: ReceivableRow) => inrText(r.amount_paid), align: "right" },
+              { header: "Balance", key: (r: ReceivableRow) => inrText(r.balance_due), align: "right" },
+              { header: "Days", key: (r: ReceivableRow) => (r.days_overdue <= 0 ? "Current" : `${r.days_overdue}d`), align: "right" },
+            ],
+            rows: [...data.rows].sort((a, b) => b.days_overdue - a.days_overdue),
+            totalsRow: ["Total", "", "",
+              inrText(data.rows.reduce((s, r) => s + r.total, 0)),
+              inrText(data.rows.reduce((s, r) => s + r.amount_paid, 0)),
+              inrText(data.rows.reduce((s, r) => s + r.balance_due, 0)), ""],
+          },
+        ],
+        filename: `receivables-ageing-${asOf}`,
+        orientation: "landscape",
+        note: "Balances owed by customers on sent invoices, as of the selected date.",
+      });
+    } catch (e) {
+      toast.error(err(e, "PDF export failed"));
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border p-4 shadow-sm flex flex-wrap items-end gap-3">
         <div><Label className="text-xs">As of</Label><Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-40" /></div>
         <div className="ml-auto flex items-center gap-3">
           <span className="text-sm text-muted-foreground">Total due: <span className="font-semibold text-card-foreground">{inr(data?.summary.total_due ?? 0)}</span></span>
-          <Button variant="outline" size="sm" onClick={doExport}><FileDown className="h-4 w-4" /> Export</Button>
+          <Button variant="outline" size="sm" onClick={doExportPdf} disabled={pdfBusy}><FileText className="h-4 w-4" /> PDF</Button>
+          <Button variant="outline" size="sm" onClick={doExport}><FileDown className="h-4 w-4" /> Excel</Button>
         </div>
       </div>
 
@@ -213,6 +323,7 @@ function PayablesView() {
   const [asOf, setAsOf] = useState(today());
   const [data, setData] = useState<{ summary: AgeingSummary; rows: PayableRow[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -232,13 +343,54 @@ function PayablesView() {
     exportToExcel({ sheetName: "Payables", columns, rows: data.rows, filename: "payables-ageing" });
   };
 
+  const doExportPdf = async () => {
+    if (!data?.rows.length) { toast.error("Nothing to export"); return; }
+    setPdfBusy(true);
+    try {
+      await downloadReportPdf({
+        title: "Payables Ageing",
+        subtitle: `As of ${asOf}`,
+        meta: [`${data.rows.length} outstanding POs`],
+        kpis: [{ label: "Total Due", value: inrCompact(data.summary.total_due), tone: "brand" }],
+        tables: [
+          { title: "Ageing buckets", columns: BUCKET_COLS, rows: bucketRows(data.summary), totalsRow: ["Total due", inrText(data.summary.total_due)] },
+          {
+            title: "Outstanding purchase orders",
+            columns: [
+              { header: "PO", key: "po_number" },
+              { header: "Vendor", key: "vendor_name" },
+              { header: "Order date", key: "order_date" },
+              { header: "Total", key: (r: PayableRow) => inrText(r.total), align: "right" },
+              { header: "Paid", key: (r: PayableRow) => inrText(r.paid), align: "right" },
+              { header: "Balance", key: (r: PayableRow) => inrText(r.balance_due), align: "right" },
+              { header: "Days", key: (r: PayableRow) => (r.days_overdue <= 0 ? "Current" : `${r.days_overdue}d`), align: "right" },
+            ],
+            rows: [...data.rows].sort((a, b) => b.days_overdue - a.days_overdue),
+            totalsRow: ["Total", "", "",
+              inrText(data.rows.reduce((s, r) => s + r.total, 0)),
+              inrText(data.rows.reduce((s, r) => s + r.paid, 0)),
+              inrText(data.rows.reduce((s, r) => s + r.balance_due, 0)), ""],
+          },
+        ],
+        filename: `payables-ageing-${asOf}`,
+        orientation: "landscape",
+        note: "Balances owed to vendors on posted purchase orders, as of the selected date.",
+      });
+    } catch (e) {
+      toast.error(err(e, "PDF export failed"));
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border p-4 shadow-sm flex flex-wrap items-end gap-3">
         <div><Label className="text-xs">As of</Label><Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="w-40" /></div>
         <div className="ml-auto flex items-center gap-3">
           <span className="text-sm text-muted-foreground">Total due: <span className="font-semibold text-card-foreground">{inr(data?.summary.total_due ?? 0)}</span></span>
-          <Button variant="outline" size="sm" onClick={doExport}><FileDown className="h-4 w-4" /> Export</Button>
+          <Button variant="outline" size="sm" onClick={doExportPdf} disabled={pdfBusy}><FileText className="h-4 w-4" /> PDF</Button>
+          <Button variant="outline" size="sm" onClick={doExport}><FileDown className="h-4 w-4" /> Excel</Button>
         </div>
       </div>
 

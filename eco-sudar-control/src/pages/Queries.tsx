@@ -109,7 +109,7 @@ export default function Queries() {
             <tbody>
               {loading && <TableSkeleton cols={6} />}
               {!loading && paged.rows.map(q => (
-                <tr key={q.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                <tr key={q.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => navigate(`/queries/${q.id}/edit`, { state: { query: q } })}>
                   <td className="p-3 font-mono text-xs text-primary">{q.id}</td>
                   <td className="p-3">
                     <div className="font-medium text-card-foreground">{q.name}</div>
@@ -120,7 +120,7 @@ export default function Queries() {
                   <td className="p-3">
                     <Badge variant="outline" className={statusColors[q.status]}>{q.status}</Badge>
                   </td>
-                  <td className="p-3">
+                  <td className="p-3" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" onClick={() => navigate(`/queries/${q.id}/edit`, { state: { query: q } })}>
                       View
                     </Button>

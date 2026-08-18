@@ -138,7 +138,7 @@ export default function AdvanceRegister() {
               {loading && <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">Loading...</td></tr>}
               {!loading && rows.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">No advance entries for this month.</td></tr>}
               {!loading && paged.rows.map((advance) => (
-                <tr key={advance.id} className="border-t hover:bg-muted/30">
+                <tr key={advance.id} className="border-t hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/advance-register/${advance.id}/edit`, { state: { advance } })}>
                   <td className="px-4 py-3">{advance.advanceDate}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{advance.employeeName}</div>
@@ -147,7 +147,7 @@ export default function AdvanceRegister() {
                   <td className="px-4 py-3 text-muted-foreground">{advance.designation || "-"}</td>
                   <td className="px-4 py-3 text-right font-semibold">{inr(advance.amount)}</td>
                   <td className="px-4 py-3 text-muted-foreground max-w-sm truncate">{advance.notes || "-"}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <Button size="icon" variant="ghost" onClick={() => navigate(`/advance-register/${advance.id}/edit`, { state: { advance } })}><Pencil className="h-4 w-4" /></Button>
                     <Button size="icon" variant="ghost" className="text-destructive" onClick={() => void remove(advance)}><Trash2 className="h-4 w-4" /></Button>
                   </td>

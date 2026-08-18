@@ -26,6 +26,22 @@ const BANK_DETAILS = [
 
 const inr = (n: any) => `Rs. ${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// EcoSudar logo for the document header. Cached as a data URL after the first load;
+// if the asset can't be fetched the header simply falls back to the company name.
+const LOGO_URL = new URL("../assets/eco-sudar-logo.png", import.meta.url).href;
+let cachedLogo: Promise<string> | null = null;
+function loadLogo(): Promise<string> {
+  cachedLogo ??= fetch(LOGO_URL)
+    .then((r) => { if (!r.ok) throw new Error("logo missing"); return r.blob(); })
+    .then((blob) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("logo read failed"));
+      reader.readAsDataURL(blob);
+    }));
+  return cachedLogo;
+}
+
 function docTitle(type: string): string {
   switch (String(type).toLowerCase()) {
     case "proforma":         return "PROFORMA INVOICE";
@@ -47,7 +63,7 @@ function addressBlock(d: any): string {
   ].filter((x) => x && String(x).trim()).join("\n");
 }
 
-export function downloadSalesDocumentPdf(d: any): void {
+export async function downloadSalesDocumentPdf(d: any): Promise<void> {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const M = 40; // margin
@@ -55,11 +71,22 @@ export function downloadSalesDocumentPdf(d: any): void {
   const interState = Number(d.igst_amount || 0) > 0;
   let y = 46;
 
-  // ── Header: company (left) + document title block (right) ─────────────────
-  doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(20, 90, 60);
-  doc.text(COMPANY.name, M, y);
+  // ── Header: logo + company (left) + document title block (right) ──────────
+  let companyX = M;
+  try {
+    const logo = await loadLogo();
+    const props = doc.getImageProperties(logo);
+    const logoH = 38;
+    const logoW = (props.width / props.height) * logoH;
+    doc.addImage(logo, "PNG", M, y - 18, logoW, logoH);
+    companyX = M + logoW + 12;
+  } catch {
+    // Logo asset unavailable — keep the text-only header.
+  }
+  doc.setFont("helvetica", "bold").setFontSize(14).setTextColor(20, 90, 60);
+  doc.text(COMPANY.name, companyX, y);
   doc.setFont("helvetica", "normal").setFontSize(8.5).setTextColor(90, 90, 90);
-  COMPANY.lines.forEach((l, i) => doc.text(l, M, y + 14 + i * 11));
+  COMPANY.lines.forEach((l, i) => doc.text(l, companyX, y + 14 + i * 11));
 
   doc.setFont("helvetica", "bold").setFontSize(18).setTextColor(20, 90, 60);
   doc.text(title, W - M, y, { align: "right" });
@@ -154,6 +181,11 @@ export function downloadSalesDocumentPdf(d: any): void {
   if (Number(d.delivery_fee || 0) > 0) summary.push(["Delivery", inr(d.delivery_fee)]);
   summary.push(["TOTAL", inr(d.total), true]);
 
+  // Keep the summary block whole: if the (possibly multi-page) table ends too low,
+  // start the summary on a fresh page so multiple rows never break the layout.
+  const pageH = doc.internal.pageSize.getHeight();
+  if (sy + summary.length * 15 + 16 > pageH - 60) { doc.addPage(); sy = 56; }
+
   doc.setFontSize(9);
   summary.forEach(([label, val, bold]) => {
     doc.setFont("helvetica", bold ? "bold" : "normal").setTextColor(bold ? 20 : 60, bold ? 90 : 60, bold ? 60 : 60);
@@ -164,8 +196,8 @@ export function downloadSalesDocumentPdf(d: any): void {
   });
 
   // ── Terms & bank ──────────────────────────────────────────────────────────
-  let ty = Math.max(sy + 16, (doc as any).lastAutoTable.finalY + 14);
-  const pageH = doc.internal.pageSize.getHeight();
+  // Terms sit below the summary we just drew (which is always below the table).
+  let ty = sy + 16;
   if (ty > pageH - 170) { doc.addPage(); ty = 46; }
 
   doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(20, 90, 60);

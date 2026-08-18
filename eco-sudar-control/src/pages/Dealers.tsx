@@ -358,7 +358,7 @@ export default function Dealers() {
             <tbody>
               {loading && <TableSkeleton cols={8} />}
               {!loading && paged.rows.map((d) => (
-                <tr key={d.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                <tr key={d.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openView(d)}>
                   <td className="px-6 py-4">
                     <p className="text-sm font-medium text-card-foreground">{d.contactPerson}</p>
                     <p className="text-xs text-muted-foreground">{d.businessName || "—"}</p>
@@ -373,7 +373,7 @@ export default function Dealers() {
                       {d.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right flex items-center justify-end gap-1">
+                  <td className="px-6 py-4 text-right flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => openView(d)} className="p-1.5 hover:bg-muted rounded-lg"><Eye className="h-4 w-4 text-muted-foreground" /></button>
                     <button onClick={() => navigate(`/dealers/${d.id}/edit`)} className="p-1.5 hover:bg-muted rounded-lg"><Edit className="h-4 w-4 text-muted-foreground" /></button>
                     <button onClick={() => setDeleteTarget(d)} className="p-1.5 hover:bg-destructive/10 rounded-lg"><Trash2 className="h-4 w-4 text-destructive" /></button>

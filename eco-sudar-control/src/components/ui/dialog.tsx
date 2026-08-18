@@ -52,15 +52,17 @@ const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 /**
- * Dialog whose *overlay* scrolls, not the inner card.
+ * Dialog whose scrollbar sits *outside* the card, at the window's edge.
  *
  * A tall popup that scrolls internally puts its scrollbar inside the white box,
- * crammed against the content and the close button. Here the full-viewport
- * overlay is the scroll container, so the browser's vertical scrollbar renders
- * at the window's right edge — outside the popup — and the card itself never
- * grows a scrollbar. Use this for any popup whose content can exceed the
- * viewport height (forms, previews, long lists). Close-on-outside-click is
- * blocked by default so a stray click never discards a half-filled form.
+ * crammed against the content and the close button. Here `Content` itself is the
+ * full-viewport scroll container — the one node Radix's scroll-lock
+ * (react-remove-scroll) whitelists, so scrolling actually works on it — and the
+ * visible card is a plain block nested inside. The browser's vertical scrollbar
+ * therefore renders at the window's right edge, outside the popup, and the card
+ * never grows a scrollbar of its own. Use this for any popup whose content can
+ * exceed the viewport height (forms, previews, long lists). Close-on-outside-click
+ * is blocked by default so a stray click never discards a half-filled form.
  */
 const DialogScrollContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
@@ -68,29 +70,30 @@ const DialogScrollContent = React.forwardRef<
 >(({ className, children, onInteractOutside, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
-    {/* Full-viewport scroll container: its scrollbar sits at the window's right
-        edge, so the card never grows an internal scrollbar. */}
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    {/* Content spans the whole viewport and owns the scroll. Its scrollbar is the
+        window's scrollbar, so it sits outside the card. The card (below) has no
+        overflow of its own and never grows an internal scrollbar. */}
+    <DialogPrimitive.Content
+      ref={ref}
+      onInteractOutside={onInteractOutside ?? ((e) => e.preventDefault())}
+      className="fixed inset-0 z-50 overflow-y-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+      {...props}
+    >
       <div className="flex min-h-full items-start justify-center p-4 sm:p-6">
-        <DialogPrimitive.Content
-          ref={ref}
-          onInteractOutside={onInteractOutside ?? ((e) => e.preventDefault())}
+        <div
           className={cn(
-            // The card itself scrolls (max-h + overflow): Radix's scroll-lock only
-            // permits scrolling *inside* Content, so a wrapper-level scroll is dead.
-            "relative my-auto grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg max-h-[calc(100dvh-3rem)] overflow-y-auto duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
+            "relative my-auto grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=open]:zoom-in-95 sm:rounded-lg",
             className,
           )}
-          {...props}
         >
           {children}
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-accent data-[state=open]:text-muted-foreground hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
-        </DialogPrimitive.Content>
+        </div>
       </div>
-    </div>
+    </DialogPrimitive.Content>
   </DialogPortal>
 ));
 DialogScrollContent.displayName = "DialogScrollContent";

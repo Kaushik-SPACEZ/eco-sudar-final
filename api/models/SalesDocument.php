@@ -98,9 +98,10 @@ class SalesDocument
     public static function items(int $id): array
     {
         return Database::fetchAll(
-            'SELECT sdi.*, p.product_name
+            'SELECT sdi.*, p.product_name, s.name AS spare_name
              FROM sales_document_items sdi
              LEFT JOIN products p ON p.product_id = sdi.product_id
+             LEFT JOIN spares_assets s ON s.spare_id = sdi.spare_id
              WHERE sdi.document_id = ?
              ORDER BY sdi.sort_order ASC, sdi.item_id ASC',
             [$id]
@@ -315,13 +316,18 @@ class SalesDocument
         );
 
         foreach (self::items((int)$doc['document_id']) as $item) {
+            $type = in_array($item['item_type'] ?? 'product', ['product', 'spare', 'service'], true)
+                ? ($item['item_type'] ?? 'product') : 'product';
             Database::insert(
                 'INSERT INTO invoice_items
-                    (invoice_id, description, hsn_code, quantity, unit, unit_price, gst_rate, line_total, sort_order)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    (invoice_id, description, item_type, product_id, spare_id, hsn_code, quantity, unit, unit_price, gst_rate, line_total, sort_order)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     $invoiceId,
                     $item['description'],
+                    $type,
+                    $type === 'product' ? ($item['product_id'] ?: null) : null,
+                    $type === 'spare' ? ($item['spare_id'] ?: null) : null,
                     $item['hsn_code'] ?: null,
                     $item['quantity'],
                     $item['unit'] ?: 'Nos',
@@ -419,15 +425,32 @@ class SalesDocument
         $challanId = self::create($data, $items);
         $date = date('Y-m-d');
         foreach ($items as $it) {
-            $pid = (int)($it['product_id'] ?? 0);
             $qty = (float)($it['quantity'] ?? 0);
-            if ($pid <= 0 || $qty <= 0) continue;
-            Database::insert(
-                'INSERT INTO stock_movements (product_id, movement_type, source, quantity, reference, movement_date, created_by)
-                 VALUES (?, "out", "order", ?, ?, ?, ?)',
-                [$pid, $qty, $data['document_number'], $date, $actorId ?: null]
-            );
-            Database::execute('UPDATE products SET stock_quantity = GREATEST(stock_quantity - ?, 0) WHERE product_id = ?', [$qty, $pid]);
+            if ($qty <= 0) continue;
+            $type = $it['item_type'] ?? 'product';
+            if ($type === 'spare') {
+                // A spare line ships spare/asset stock out of spares_assets.
+                $sid = (int)($it['spare_id'] ?? 0);
+                if ($sid <= 0) continue;
+                Database::insert(
+                    'INSERT INTO spare_asset_movements (spare_id, movement_type, quantity, reference, movement_date, created_by)
+                     VALUES (?, "out", ?, ?, ?, ?)',
+                    [$sid, $qty, $data['document_number'], $date, $actorId ?: null]
+                );
+                Database::execute('UPDATE spares_assets SET current_stock = GREATEST(current_stock - ?, 0) WHERE spare_id = ?', [$qty, $sid]);
+            } elseif ($type === 'service') {
+                // Services carry no stock — nothing to deduct.
+                continue;
+            } else {
+                $pid = (int)($it['product_id'] ?? 0);
+                if ($pid <= 0) continue;
+                Database::insert(
+                    'INSERT INTO stock_movements (product_id, movement_type, source, quantity, reference, movement_date, created_by)
+                     VALUES (?, "out", "order", ?, ?, ?, ?)',
+                    [$pid, $qty, $data['document_number'], $date, $actorId ?: null]
+                );
+                Database::execute('UPDATE products SET stock_quantity = GREATEST(stock_quantity - ?, 0) WHERE product_id = ?', [$qty, $pid]);
+            }
         }
 
         return $challanId;
@@ -535,6 +558,9 @@ class SalesDocument
             'document_id' => (int)$row['document_id'],
             'product_id' => $row['product_id'] ? (int)$row['product_id'] : null,
             'product_name' => $row['product_name'] ?? null,
+            'item_type' => $row['item_type'] ?? 'product',
+            'spare_id' => isset($row['spare_id']) && $row['spare_id'] ? (int)$row['spare_id'] : null,
+            'spare_name' => $row['spare_name'] ?? null,
             'description' => $row['description'],
             'hsn_code' => $row['hsn_code'],
             'quantity' => (float)$row['quantity'],
@@ -550,13 +576,21 @@ class SalesDocument
     {
         Database::execute('DELETE FROM sales_document_items WHERE document_id = ?', [$id]);
         foreach ($items as $idx => $item) {
+            // A line is one of three types; keep only the ref that matches the type
+            // so a product line can't smuggle a spare_id (and vice-versa).
+            $type = in_array($item['item_type'] ?? 'product', ['product', 'spare', 'service'], true)
+                ? ($item['item_type'] ?? 'product') : 'product';
+            $productId = $type === 'product' ? ($item['product_id'] ?: null) : null;
+            $spareId   = $type === 'spare'   ? ($item['spare_id'] ?: null)   : null;
             Database::insert(
                 'INSERT INTO sales_document_items
-                    (document_id, product_id, description, hsn_code, quantity, unit, unit_price, gst_rate, line_total, sort_order)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    (document_id, product_id, item_type, spare_id, description, hsn_code, quantity, unit, unit_price, gst_rate, line_total, sort_order)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     $id,
-                    $item['product_id'] ?: null,
+                    $productId,
+                    $type,
+                    $spareId,
                     $item['description'],
                     $item['hsn_code'] ?: null,
                     $item['quantity'],

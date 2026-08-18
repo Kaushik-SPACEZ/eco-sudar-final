@@ -328,7 +328,7 @@ export default function Meetings() {
                     ? "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300"
                     : "bg-gray-100 text-gray-600 dark:bg-gray-700/40 dark:text-gray-300";
                 return (
-                  <tr key={m.id} className="border-t hover:bg-muted/30">
+                  <tr key={m.id} className="border-t hover:bg-muted/30 cursor-pointer" onClick={() => setView(m)}>
                     <td className="px-4 py-3 font-medium text-card-foreground">{m.id}</td>
                     <td className="px-4 py-3">{m.title}</td>
                     <td className="px-4 py-3">{m.date} <span className="text-muted-foreground">{m.time}</span></td>
@@ -339,7 +339,7 @@ export default function Meetings() {
                         {openCount} / {total}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setView(m)}

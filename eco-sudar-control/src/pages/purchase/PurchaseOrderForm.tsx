@@ -9,15 +9,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { ScrollableX } from "@/components/ui/scrollable-x";
 import { RecordCombobox } from "@/components/RecordCombobox";
 import { CategoryCombobox } from "@/components/CategoryCombobox";
 import { QuickCreateDialog } from "@/components/QuickCreateDialog";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import {
+  VendorFields, vendorEmpty, validateVendor, buildVendorPayload, type VendorFormState,
+} from "@/components/vendor/VendorFields";
 import { phase2Api, type ApiRow } from "@/lib/api/phase2";
 import { useUnsavedChanges } from "@/components/UnsavedChangesGuard";
 import { UOM_OPTIONS, GST_RATES } from "@/lib/uom";
-import { isGstin, isEmail, isPhone10, capDigits, isNumeric, firstError } from "@/lib/validate";
+import { isGstin, isNumeric, firstError } from "@/lib/validate";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -51,15 +54,6 @@ const TYPE_META: Record<string, { label: string; badge: string }> = {
 const typeLabel = (v: unknown) => TYPE_META[normType(v)].label;
 const typeBadge = (v: unknown) => TYPE_META[normType(v)].badge;
 
-const PAYMENT_TERMS = ["Due on Receipt", "Net 15", "Net 30", "Net 45", "Net 60"];
-const emptyVendor = () => ({
-  name: "", company_name: "", gstin: "", pan: "",
-  contact_name: "", email: "", phone: "", mobile: "",
-  payment_terms: "", opening_balance: "", msme_registered: false,
-  address: "", city: "", state: "", pincode: "",
-  bank_account_holder: "", bank_name: "", bank_account_number: "", bank_ifsc: "",
-  notes: "",
-});
 const emptyItem = () => ({ name: "", item_type: "stock", category: "", unit: "nos", rate: "", gst_rate: "18", hsn_code: "", specification: "" });
 
 export default function PurchaseOrderForm() {
@@ -79,17 +73,30 @@ export default function PurchaseOrderForm() {
 
   // Inline "add new" popups
   const [vendorOpen, setVendorOpen] = useState(false);
-  const [vendorForm, setVendorForm] = useState(emptyVendor());
+  const [vendorForm, setVendorForm] = useState<VendorFormState>(vendorEmpty());
+  const [vendorReAccount, setVendorReAccount] = useState("");
   const [vendorSaving, setVendorSaving] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [itemForm, setItemForm] = useState(emptyItem());
   const [itemSaving, setItemSaving] = useState(false);
   const [itemLineIdx, setItemLineIdx] = useState<number | null>(null);
 
+  // Confirm before discarding a line that already has data typed into it.
+  const [delIdx, setDelIdx] = useState<number | null>(null);
+
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm(f => ({ ...f, [k]: v }));
   const setLine = (i: number, patch: Partial<Line>) => setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   const addLine = () => setLines(ls => [...ls, emptyLine()]);
-  const rmLine = (i: number) => setLines(ls => ls.length > 1 ? ls.filter((_, idx) => idx !== i) : ls);
+  // Remove row i; if it's the only row, blank it instead so the table always has one.
+  const rmLine = (i: number) => setLines(ls => ls.length > 1 ? ls.filter((_, idx) => idx !== i) : [emptyLine()]);
+  // A line counts as "filled" once it holds anything worth confirming before losing.
+  const lineIsFilled = (l: Line) => !!(l.purchase_item_id || l.description.trim() || l.category.trim() || l.unit_price > 0 || l.quantity !== 1);
+  // Blank rows vanish silently; rows with data ask first.
+  const requestRemoveLine = (i: number) => {
+    const l = lines[i];
+    if (l && lineIsFilled(l)) setDelIdx(i);
+    else rmLine(i);
+  };
 
   const loadVendors = () => phase2Api.vendors.list().then(setVendors).catch(() => {});
   const loadCatalog = () => phase2Api.purchaseItems.list().then(setCatalog).catch(() => {});
@@ -181,26 +188,15 @@ export default function PurchaseOrderForm() {
   };
 
   // ── Inline vendor create ────────────────────────────────────────────────────
-  const openVendorDialog = () => { setVendorForm(emptyVendor()); setVendorOpen(true); };
+  // Uses the exact same field set as the standalone Vendor form (VendorFields),
+  // so every field/option available there is available here too.
+  const openVendorDialog = () => { setVendorForm(vendorEmpty()); setVendorReAccount(""); setVendorOpen(true); };
   const submitVendor = async () => {
-    const g = vendorForm.gstin.trim().toUpperCase();
-    const error = firstError([
-      [vendorForm.name.trim() !== "", "Display name is required"],
-      [g === "" || isGstin(g), "GSTIN is not valid"],
-      [vendorForm.email.trim() === "" || isEmail(vendorForm.email), "Email is not valid"],
-      [vendorForm.phone.trim() === "" || isPhone10(vendorForm.phone), "Work phone must be 10 digits"],
-      [vendorForm.mobile.trim() === "" || isPhone10(vendorForm.mobile), "Mobile must be 10 digits"],
-    ]);
+    const error = validateVendor(vendorForm, vendorReAccount);
     if (error) { toast.error(error); return; }
     setVendorSaving(true);
     try {
-      const created: ApiRow = await phase2Api.vendors.create({
-        ...vendorForm,
-        gstin: g,
-        pan: vendorForm.pan.trim().toUpperCase() || null,
-        opening_balance: vendorForm.opening_balance === "" ? 0 : Number(vendorForm.opening_balance),
-        msme_registered: !!vendorForm.msme_registered,
-      });
+      const created: ApiRow = await phase2Api.vendors.create(buildVendorPayload(vendorForm));
       toast.success("Vendor added");
       await loadVendors();
       if (created?.vendor_id) set("vendor_id", Number(created.vendor_id));
@@ -406,13 +402,7 @@ export default function PurchaseOrderForm() {
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        <CategoryCombobox
-                          options={categoryOptions}
-                          value={l.category}
-                          onChange={(v) => setLine(i, { category: v })}
-                          placeholder="—"
-                          triggerClassName="h-8 py-1 text-sm"
-                        />
+                        <Input value={l.category} onChange={e => setLine(i, { category: e.target.value })} className="h-8 text-sm" placeholder="—" />
                       </td>
                       <td className="px-3 py-2">
                         {l.purchase_item_id ? (
@@ -440,7 +430,7 @@ export default function PurchaseOrderForm() {
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{inr(lineTotal(l))}</td>
                       <td className="px-3 py-2">
-                        <Button variant="ghost" size="icon" type="button" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => rmLine(i)}>
+                        <Button variant="ghost" size="icon" type="button" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => requestRemoveLine(i)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </td>
@@ -479,114 +469,12 @@ export default function PurchaseOrderForm() {
         submitLabel="Save vendor"
         onSubmit={submitVendor}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Identity */}
-          <div className="md:col-span-2 text-sm font-semibold text-foreground">Basic Details</div>
-          <div className="space-y-1.5">
-            <Label>Display Name <Req /></Label>
-            <Input value={vendorForm.name} onChange={e => setVendorForm(f => ({ ...f, name: e.target.value }))} placeholder="Vendor / trade name" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Company Name</Label>
-            <Input value={vendorForm.company_name} onChange={e => setVendorForm(f => ({ ...f, company_name: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>GSTIN</Label>
-            <div className="flex items-center gap-2">
-              <Input value={vendorForm.gstin} onChange={e => setVendorForm(f => ({ ...f, gstin: e.target.value.toUpperCase() }))} placeholder="15-char GSTIN" className="uppercase" />
-              {vendorForm.gstin.trim() !== "" && (isGstin(vendorForm.gstin)
-                ? <span className="inline-flex items-center gap-1 text-xs text-emerald-600 shrink-0"><CheckCircle2 className="h-4 w-4" /> valid</span>
-                : <span className="inline-flex items-center gap-1 text-xs text-destructive shrink-0"><XCircle className="h-4 w-4" /> invalid</span>)}
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>PAN</Label>
-            <Input value={vendorForm.pan} onChange={e => setVendorForm(f => ({ ...f, pan: e.target.value.toUpperCase() }))} placeholder="ABCDE1234F" className="uppercase" />
-          </div>
-
-          {/* Contact */}
-          <div className="md:col-span-2 mt-2 border-t pt-3 text-sm font-semibold text-foreground">Contact</div>
-          <div className="space-y-1.5">
-            <Label>Contact Person</Label>
-            <Input value={vendorForm.contact_name} onChange={e => setVendorForm(f => ({ ...f, contact_name: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Email</Label>
-            <Input type="email" value={vendorForm.email} onChange={e => setVendorForm(f => ({ ...f, email: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Work Phone</Label>
-            <Input value={vendorForm.phone} onChange={e => setVendorForm(f => ({ ...f, phone: capDigits(e.target.value, 10) }))} placeholder="10-digit" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Mobile</Label>
-            <Input value={vendorForm.mobile} onChange={e => setVendorForm(f => ({ ...f, mobile: capDigits(e.target.value, 10) }))} placeholder="10-digit" />
-          </div>
-
-          {/* Business */}
-          <div className="md:col-span-2 mt-2 border-t pt-3 text-sm font-semibold text-foreground">Business Terms</div>
-          <div className="space-y-1.5">
-            <Label>Payment Terms</Label>
-            <Select value={vendorForm.payment_terms || undefined} onValueChange={(v) => setVendorForm(f => ({ ...f, payment_terms: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select terms" /></SelectTrigger>
-              <SelectContent>{PAYMENT_TERMS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Opening Balance (₹)</Label>
-            <Input type="number" step="0.01" value={vendorForm.opening_balance} onChange={e => setVendorForm(f => ({ ...f, opening_balance: e.target.value }))} placeholder="0.00" />
-          </div>
-          <div className="space-y-1.5 md:col-span-2">
-            <div className="flex items-center gap-2 pt-1">
-              <Switch checked={vendorForm.msme_registered} onCheckedChange={(v) => setVendorForm(f => ({ ...f, msme_registered: v }))} />
-              <span className="text-sm text-muted-foreground">MSME registered vendor</span>
-            </div>
-          </div>
-
-          {/* Address */}
-          <div className="md:col-span-2 mt-2 border-t pt-3 text-sm font-semibold text-foreground">Address</div>
-          <div className="space-y-1.5 md:col-span-2">
-            <Label>Street Address</Label>
-            <Textarea rows={2} value={vendorForm.address} onChange={e => setVendorForm(f => ({ ...f, address: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>City</Label>
-            <Input value={vendorForm.city} onChange={e => setVendorForm(f => ({ ...f, city: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>State</Label>
-            <Input value={vendorForm.state} onChange={e => setVendorForm(f => ({ ...f, state: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Pincode</Label>
-            <Input value={vendorForm.pincode} onChange={e => setVendorForm(f => ({ ...f, pincode: capDigits(e.target.value, 6) }))} />
-          </div>
-
-          {/* Bank */}
-          <div className="md:col-span-2 mt-2 border-t pt-3 text-sm font-semibold text-foreground">Bank Details</div>
-          <div className="space-y-1.5">
-            <Label>Account Holder</Label>
-            <Input value={vendorForm.bank_account_holder} onChange={e => setVendorForm(f => ({ ...f, bank_account_holder: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Bank Name</Label>
-            <Input value={vendorForm.bank_name} onChange={e => setVendorForm(f => ({ ...f, bank_name: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Account Number</Label>
-            <Input value={vendorForm.bank_account_number} onChange={e => setVendorForm(f => ({ ...f, bank_account_number: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>IFSC</Label>
-            <Input value={vendorForm.bank_ifsc} onChange={e => setVendorForm(f => ({ ...f, bank_ifsc: e.target.value.toUpperCase() }))} className="uppercase" />
-          </div>
-
-          {/* Notes */}
-          <div className="md:col-span-2 mt-2 border-t pt-3 text-sm font-semibold text-foreground">Notes</div>
-          <div className="space-y-1.5 md:col-span-2">
-            <Textarea rows={2} value={vendorForm.notes} onChange={e => setVendorForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes about this vendor" />
-          </div>
-        </div>
+        <VendorFields
+          form={vendorForm}
+          setForm={setVendorForm}
+          reAccount={vendorReAccount}
+          setReAccount={setVendorReAccount}
+        />
       </QuickCreateDialog>
 
       {/* ── Add new item (inline) ────────────────────────────────────────────── */}
@@ -643,12 +531,30 @@ export default function PurchaseOrderForm() {
               <SelectContent>{GST_RATES.map(r => <SelectItem key={r} value={r}>{r}%</SelectItem>)}</SelectContent>
             </Select>
           </div>
+          <div className="space-y-1.5">
+            <Label>HSN / SAC Code</Label>
+            <Input value={itemForm.hsn_code} onChange={e => setItemForm(f => ({ ...f, hsn_code: e.target.value }))} placeholder="Optional" />
+          </div>
           <div className="space-y-1.5 md:col-span-2">
             <Label>Specification</Label>
             <Textarea rows={2} value={itemForm.specification} onChange={e => setItemForm(f => ({ ...f, specification: e.target.value }))} placeholder="Size, grade, material, brand…" />
           </div>
         </div>
       </QuickCreateDialog>
+
+      {/* ── Confirm removing a line that has data ────────────────────────────── */}
+      <ConfirmDeleteDialog
+        open={delIdx !== null}
+        onOpenChange={(v) => { if (!v) setDelIdx(null); }}
+        onConfirm={() => { if (delIdx !== null) rmLine(delIdx); setDelIdx(null); }}
+        title="Remove this line item?"
+        description={
+          delIdx !== null && lines[delIdx]
+            ? <>“{lines[delIdx].description?.trim() || "This item"}” will be removed from the purchase order.</>
+            : "This line will be removed from the purchase order."
+        }
+        confirmLabel="Remove line"
+      />
     </FormPage>
   );
 }

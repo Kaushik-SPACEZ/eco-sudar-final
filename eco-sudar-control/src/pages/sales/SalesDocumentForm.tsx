@@ -14,7 +14,7 @@ import { RecordCombobox } from "@/components/RecordCombobox";
 import { QuickCreateDialog } from "@/components/QuickCreateDialog";
 import { phase2Api, type ApiRow } from "@/lib/api/phase2";
 import { fetchCustomers, createCustomer, type ApiUser } from "@/lib/api/customers";
-import { inventoryApi, type StockItem } from "@/lib/api/inventory";
+import { inventoryApi, type StockItem, type SpareAsset } from "@/lib/api/inventory";
 import { useUnsavedChanges } from "@/components/UnsavedChangesGuard";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -35,8 +35,11 @@ const DOC_BACK: Record<string, string> = {
   delivery_challan: "/sales/delivery-challans",
 };
 
+type LineType = "product" | "spare" | "service";
 interface Line {
+  item_type: LineType;
   product_id: number | null;
+  spare_id: number | null;
   description: string;
   hsn: string;
   quantity: number;
@@ -44,7 +47,7 @@ interface Line {
   gst_rate: string;
 }
 
-const blankLine = (): Line => ({ product_id: null, description: "", hsn: "", quantity: 1, unit_price: 0, gst_rate: "18" });
+const blankLine = (): Line => ({ item_type: "product", product_id: null, spare_id: null, description: "", hsn: "", quantity: 1, unit_price: 0, gst_rate: "18" });
 
 interface DocForm {
   customer_name: string;
@@ -89,6 +92,7 @@ export default function SalesDocumentForm() {
   // Connectivity: pick an existing customer / finished-stock product (with inline create).
   const [customers, setCustomers] = useState<ApiUser[]>([]);
   const [products, setProducts] = useState<StockItem[]>([]);
+  const [spares, setSpares] = useState<SpareAsset[]>([]);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [custOpen, setCustOpen] = useState(false);
   const [custForm, setCustForm] = useState({ name: "", email: "", phone: "", password: "", city: "", address: "", pincode: "" });
@@ -98,6 +102,7 @@ export default function SalesDocumentForm() {
   useEffect(() => {
     fetchCustomers(200).then(setCustomers).catch(() => {});
     inventoryApi.stock().then(setProducts).catch(() => {});
+    inventoryApi.spares().then(setSpares).catch(() => {});
   }, []);
 
   const pickCustomer = (cid: number | string) => {
@@ -146,8 +151,16 @@ export default function SalesDocumentForm() {
   const pickProduct = (i: number, pid: number | string) => {
     const p = products.find(x => x.product_id === Number(pid));
     if (!p) return;
-    setLine(i, { product_id: Number(pid), description: p.product_name, unit_price: Number(p.base_price ?? 0) });
+    setLine(i, { item_type: "product", product_id: Number(pid), spare_id: null, description: p.product_name, unit_price: Number(p.base_price ?? 0) });
   };
+  // Selecting a spare/asset links spare_id so a delivery challan deducts spare stock.
+  const pickSpare = (i: number, sid: number | string) => {
+    const s = spares.find(x => x.spare_id === Number(sid));
+    if (!s) return;
+    setLine(i, { item_type: "spare", spare_id: Number(sid), product_id: null, description: s.name });
+  };
+  // Switching a line's type clears the other reference so it only ever links one thing.
+  const changeLineType = (i: number, t: LineType) => setLine(i, { item_type: t, product_id: null, spare_id: null });
 
   const setD = <K extends keyof DocForm>(k: K, v: DocForm[K]) => setDoc(d => ({ ...d, [k]: v }));
   const setLine = (i: number, patch: Partial<Line>) =>
@@ -173,7 +186,9 @@ export default function SalesDocumentForm() {
         setDoc(d);
         const ls: Line[] = Array.isArray(full.items) && (full.items as Line[]).length
           ? (full.items as ApiRow[]).map(it => ({
+              item_type: ((it.item_type as LineType) ?? "product"),
               product_id: it.product_id != null ? Number(it.product_id) : null,
+              spare_id: it.spare_id != null ? Number(it.spare_id) : null,
               description: String(it.description ?? ""),
               hsn: String(it.hsn_code ?? it.hsn ?? ""),
               quantity: Number(it.quantity ?? 1),
@@ -339,7 +354,8 @@ export default function SalesDocumentForm() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="w-48 text-left px-3 py-2 font-medium text-muted-foreground">Finished Stock</th>
+                    <th className="w-28 text-left px-3 py-2 font-medium text-muted-foreground">Type</th>
+                    <th className="w-48 text-left px-3 py-2 font-medium text-muted-foreground">Item</th>
                     <th className="text-left px-3 py-2 font-medium text-muted-foreground">Description</th>
                     <th className="w-28 px-3 py-2 text-left font-medium text-muted-foreground">HSN</th>
                     <th className="w-24 px-3 py-2 text-left font-medium text-muted-foreground">Qty</th>
@@ -353,15 +369,41 @@ export default function SalesDocumentForm() {
                   {lines.map((l, i) => (
                     <tr key={i} className="hover:bg-muted/20">
                       <td className="px-3 py-2 align-top">
-                        <RecordCombobox
-                          options={products}
-                          value={l.product_id}
-                          onSelect={(v) => pickProduct(i, v)}
-                          getId={(p) => p.product_id}
-                          getLabel={(p) => p.product_name}
-                          getSecondary={(p) => [p.category, `${p.stock_quantity} in stock`].filter(Boolean).join(" · ") || undefined}
-                          placeholder="Pick stock…"
-                        />
+                        <Select value={l.item_type} onValueChange={(v) => changeLineType(i, v as LineType)}>
+                          <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="product">Product</SelectItem>
+                            <SelectItem value="spare">Spare</SelectItem>
+                            <SelectItem value="service">Service</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {l.item_type === "product" && (
+                          <RecordCombobox
+                            options={products}
+                            value={l.product_id}
+                            onSelect={(v) => pickProduct(i, v)}
+                            getId={(p) => p.product_id}
+                            getLabel={(p) => p.product_name}
+                            getSecondary={(p) => [p.category, `${p.stock_quantity} in stock`].filter(Boolean).join(" · ") || undefined}
+                            placeholder="Pick stock…"
+                          />
+                        )}
+                        {l.item_type === "spare" && (
+                          <RecordCombobox
+                            options={spares}
+                            value={l.spare_id}
+                            onSelect={(v) => pickSpare(i, v)}
+                            getId={(s) => s.spare_id}
+                            getLabel={(s) => s.name}
+                            getSecondary={(s) => [s.category, `${s.current_stock} ${s.unit}`].filter(Boolean).join(" · ") || undefined}
+                            placeholder="Pick spare…"
+                          />
+                        )}
+                        {l.item_type === "service" && (
+                          <span className="text-xs text-muted-foreground">Free-text service</span>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <Input

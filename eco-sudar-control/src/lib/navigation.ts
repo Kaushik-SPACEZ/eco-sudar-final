@@ -100,6 +100,7 @@ export const sections: MenuSection[] = [
       { title: "Financial Statements", url: "/financial-statements", icon: Scale },
       { title: "Profit & Loss", url: "/finance", icon: LineChart },
       { title: "Finance Planning", url: "/finance-planning", icon: FileBarChart2 },
+      { title: "E-Way Bills", url: "/eway-bills", icon: Truck },
     ],
   },
   {

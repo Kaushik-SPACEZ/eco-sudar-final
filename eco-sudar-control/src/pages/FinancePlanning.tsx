@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, CheckCircle2, Gauge, LineChart, Plus, RefreshCw, Save, Target, Wallet } from "lucide-react";
+import { BarChart3, CheckCircle2, Download, FileSpreadsheet, FileText, Gauge, LineChart, Plus, RefreshCw, Save, Target, Wallet } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart as RLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { Req } from "@/components/Req";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogScrollContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollableX } from "@/components/ui/scrollable-x";
 import { StatCard } from "@/components/StatCard";
 import { phase2Api, type ApiRow } from "@/lib/api/phase2";
+import { downloadReportPdf, inrText, inrCompact } from "@/lib/reportPdf";
+import { exportWorkbook } from "@/lib/exporters";
 
 const inr = (n: any) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -46,6 +49,8 @@ export default function FinancePlanning() {
   const [from, setFrom] = useState(minus(90));
   const [to, setTo] = useState(today());
   const [module, setModule] = useState("sales");
+  const [tab, setTab] = useState("analytics");
+  const [downloading, setDownloading] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [benchmarkOpen, setBenchmarkOpen] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<ApiRow | null>(null);
@@ -133,6 +138,140 @@ export default function FinancePlanning() {
     setBenchmarkOpen(false);
   };
 
+  // Export whatever tab is currently open. Data comes from state already loaded.
+  const exportCurrent = async (kind: "pdf" | "excel") => {
+    const periodSub = `Period: ${from} → ${to}`;
+    const runPdf = async (opts: Parameters<typeof downloadReportPdf>[0]) => {
+      setDownloading(true);
+      try { await downloadReportPdf(opts); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "PDF export failed"); }
+      finally { setDownloading(false); }
+    };
+
+    if (tab === "analytics") {
+      if (!expenseChart.length && !overlayChart.length) return toast.error("Nothing to export");
+      if (kind === "excel") {
+        return exportWorkbook("finance-analytics", [
+          { name: "Expense by Category", rows: expenseChart.map((r) => ({ Category: r.name, Amount: r.amount })) },
+          { name: "Overlay", rows: overlayChart.map((r) => ({ Period: r.period, Revenue: r.revenue, Expenses: r.expenses, Profit: r.profit })) },
+        ]);
+      }
+      return runPdf({
+        title: "Finance Analytics",
+        subtitle: periodSub,
+        kpis: [
+          { label: "Expense Total", value: inrCompact(metrics.expenseTotal), tone: "muted" },
+          { label: "Revenue", value: inrCompact(metrics.revenue), tone: "brand" },
+          { label: "Gross Profit", value: inrCompact(metrics.grossProfit), tone: metrics.grossProfit >= 0 ? "positive" : "negative" },
+        ],
+        tables: [
+          { title: "Expense by category",
+            columns: [{ header: "Category", key: "name" }, { header: "Amount", key: (r: ApiRow) => inrText(r.amount), align: "right" }],
+            rows: expenseChart, totalsRow: ["Total", inrText(expenseChart.reduce((s, r) => s + r.amount, 0))] },
+          { title: "Revenue / Expense / Profit overlay",
+            columns: [
+              { header: "Period", key: "period" },
+              { header: "Revenue", key: (r: ApiRow) => inrText(r.revenue), align: "right" },
+              { header: "Expenses", key: (r: ApiRow) => inrText(r.expenses), align: "right" },
+              { header: "Profit", key: (r: ApiRow) => inrText(r.profit), align: "right" },
+            ], rows: overlayChart },
+        ],
+        filename: "finance-analytics",
+        orientation: "landscape",
+      });
+    }
+
+    if (tab === "budgets") {
+      const lines = ((budgetActualData as any)?.lines || (budgetActualData as any)?.rows || []) as ApiRow[];
+      if (lines.length) {
+        const norm = lines.map((r) => ({
+          category: r.category, period: r.period,
+          budget: num(r.budget_amount ?? r.amount), actual: num(r.actual_amount ?? r.actual), variance: num(r.variance),
+        }));
+        if (kind === "excel") {
+          return exportWorkbook("budget-vs-actual", [{ name: "Budget vs Actual",
+            rows: norm.map((r) => ({ Category: r.category, Period: r.period, Budget: r.budget, Actual: r.actual, Variance: r.variance })) }]);
+        }
+        return runPdf({
+          title: "Budget vs Actual",
+          subtitle: selectedBudget?.name ?? "Budget lines",
+          tables: [{ title: "Budget lines",
+            columns: [
+              { header: "Category", key: "category" },
+              { header: "Period", key: "period" },
+              { header: "Budget", key: (r: ApiRow) => inrText(r.budget), align: "right" },
+              { header: "Actual", key: (r: ApiRow) => inrText(r.actual), align: "right" },
+              { header: "Variance", key: (r: ApiRow) => inrText(r.variance), align: "right" },
+            ], rows: norm,
+            totalsRow: ["Total", "",
+              inrText(norm.reduce((s, r) => s + r.budget, 0)),
+              inrText(norm.reduce((s, r) => s + r.actual, 0)),
+              inrText(norm.reduce((s, r) => s + r.variance, 0))] }],
+          filename: "budget-vs-actual",
+          orientation: "landscape",
+        });
+      }
+      if (!budgetsData.length) return toast.error("Nothing to export");
+      if (kind === "excel") {
+        return exportWorkbook("budgets", [{ name: "Budgets", rows: budgetsData.map((b) => ({
+          Budget: b.name, "Fiscal Year": b.fiscal_year, Type: b.period_type,
+          Lines: b.lines_count ?? b.lines?.length ?? 0, Active: b.is_active ? "Yes" : "No",
+          Created: b.created_at?.slice(0, 10) ?? "",
+        })) }]);
+      }
+      return runPdf({
+        title: "Budgets",
+        subtitle: "Open a budget's 'View Actual' to include its variance lines.",
+        tables: [{ title: "Budgets",
+          columns: [
+            { header: "Budget", key: "name" },
+            { header: "Fiscal Year", key: "fiscal_year" },
+            { header: "Type", key: "period_type" },
+            { header: "Lines", key: (b: ApiRow) => String(b.lines_count ?? b.lines?.length ?? 0), align: "right" },
+            { header: "Active", key: (b: ApiRow) => (b.is_active ? "Yes" : "No") },
+          ], rows: budgetsData }],
+        filename: "budgets",
+        orientation: "landscape",
+      });
+    }
+
+    // benchmarks tab
+    const brows = ((benchmarkStatusData as any)?.benchmarks || (benchmarkStatusData as any)?.rows || []) as ApiRow[];
+    if (!brows.length && !benchmarksData.length) return toast.error("Nothing to export");
+    if (kind === "excel") {
+      return brows.length
+        ? exportWorkbook("benchmarks", [{ name: "Benchmark Status", rows: brows.map((b) => ({
+            Metric: b.metric, Actual: b.actual_value ?? b.actual, Target: b.target_value ?? b.target,
+            Result: b.passed ? "Passed" : "Watch", Gap: b.gap ?? "",
+          })) }])
+        : exportWorkbook("benchmarks", [{ name: "Benchmarks", rows: benchmarksData.map((b) => ({
+            Metric: b.metric, Target: b.target_value, Comparison: b.comparison, Unit: b.unit ?? "", Active: b.is_active ? "Yes" : "No",
+          })) }]);
+    }
+    return runPdf({
+      title: "Benchmarks",
+      subtitle: periodSub,
+      tables: brows.length
+        ? [{ title: "Metric vs target vs result",
+            columns: [
+              { header: "Metric", key: "metric" },
+              { header: "Actual", key: (b: ApiRow) => String(b.actual_value ?? b.actual ?? "—"), align: "right" },
+              { header: "Target", key: (b: ApiRow) => String(b.target_value ?? b.target ?? "—"), align: "right" },
+              { header: "Result", key: (b: ApiRow) => (b.passed ? "Passed" : "Watch") },
+              { header: "Gap", key: (b: ApiRow) => String(b.gap ?? "—"), align: "right" },
+            ], rows: brows }]
+        : [{ title: "Benchmark targets",
+            columns: [
+              { header: "Metric", key: "metric" },
+              { header: "Target", key: (b: ApiRow) => String(b.target_value), align: "right" },
+              { header: "Comparison", key: "comparison" },
+              { header: "Unit", key: (b: ApiRow) => String(b.unit ?? "—") },
+            ], rows: benchmarksData }],
+      filename: "benchmarks",
+      orientation: "portrait",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -140,7 +279,20 @@ export default function FinancePlanning() {
           <h1 className="text-2xl font-bold text-foreground">Finance Analytics & Planning</h1>
           <p className="text-muted-foreground">Expense graphics, report analytics, budget vs actual, and benchmark controls.</p>
         </div>
-        <Button variant="outline" onClick={loadData}><RefreshCw className="h-4 w-4" /> Refresh</Button>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={downloading}>
+                {downloading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Download
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportCurrent("pdf")}><FileText className="h-4 w-4" /> Current tab (PDF)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportCurrent("excel")}><FileSpreadsheet className="h-4 w-4" /> Current tab (Excel)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="outline" onClick={loadData}><RefreshCw className="h-4 w-4" /> Refresh</Button>
+        </div>
       </div>
 
       <div className="rounded-xl border bg-card p-4 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
@@ -159,7 +311,7 @@ export default function FinancePlanning() {
         <StatCard title="Budget Variance" value={inr(metrics.variance)} subtitle={selectedBudget ? selectedBudget.name : "select budget"} icon={Target} />
       </div>
 
-      <Tabs defaultValue="analytics" className="space-y-4">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="budgets">Budget vs Actual</TabsTrigger>

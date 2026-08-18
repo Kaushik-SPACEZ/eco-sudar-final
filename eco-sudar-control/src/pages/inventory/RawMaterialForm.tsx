@@ -40,7 +40,7 @@ export default function RawMaterialForm() {
     inventoryApi.rawMaterials()
       .then(all => {
         const m = all.find(r => r.raw_material_id === Number(id));
-        if (!m) { toast.error("Raw material not found"); navigate("/inventory/materials"); return; }
+        if (!m) { toast.error("Raw material not found"); navigate("/inventory/raw-materials"); return; }
         const f: Form = {
           name: m.name,
           unit: m.unit,
@@ -71,7 +71,7 @@ export default function RawMaterialForm() {
         toast.success("Raw material added");
       }
       setInitial(JSON.stringify(form));
-      navigate("/inventory/materials");
+      navigate("/inventory/raw-materials");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -84,10 +84,10 @@ export default function RawMaterialForm() {
       title={editing ? "Edit Raw Material" : "New Raw Material"}
       description="Biomass feedstock and inputs consumed in production."
       icon={<Layers className="h-6 w-6 text-primary" />}
-      onBack={() => navigate("/inventory/materials")}
+      onBack={() => navigate("/inventory/raw-materials")}
       footer={
         <>
-          <Button variant="outline" onClick={() => navigate("/inventory/materials")} disabled={saving}>
+          <Button variant="outline" onClick={() => navigate("/inventory/raw-materials")} disabled={saving}>
             Cancel
           </Button>
           <Button onClick={submit} disabled={saving || loading}>

@@ -1,11 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   TrendingUp, TrendingDown, Wallet, PiggyBank, Receipt, Activity,
   Percent, Scale, Target, Layers, Sparkles, Lightbulb, ShieldAlert, CheckCircle2, RefreshCw, Loader2,
+  Download, FileText, FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { StatCard } from "@/components/StatCard";
-import { financeApi, type FinancialRatios } from "@/lib/api/finance";
+import { financeApi, type FinancialRatios, type MonthlyPoint } from "@/lib/api/finance";
+import { downloadReportPdf, inrText, inrCompact } from "@/lib/reportPdf";
+import { exportWorkbook } from "@/lib/exporters";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -16,6 +24,29 @@ import {
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 const k = (n: number) => `₹${(n / 1000).toFixed(0)}k`;
+
+/** Indian fiscal year (Apr 1 → Mar 31) covering today. */
+function currentFyRange(): { from: string; to: string } {
+  const now = new Date();
+  const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  return { from: `${y}-04-01`, to: `${y + 1}-03-31` };
+}
+function isoMonthsAgo(m: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - m);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Honest period-over-period delta from the monthly series (last vs previous month). */
+function monthDelta(series: MonthlyPoint[], key: keyof MonthlyPoint): string {
+  if (!series || series.length < 2) return "this period";
+  const last = Number(series[series.length - 1][key]);
+  const prev = Number(series[series.length - 2][key]);
+  if (!prev) return "this period";
+  const change = ((last - prev) / Math.abs(prev)) * 100;
+  const arrow = change >= 0 ? "↑" : "↓";
+  return `${arrow} ${Math.abs(change).toFixed(1)}% vs previous month`;
+}
 
 const PIE_COLORS = [
   "hsl(200,70%,52%)", "hsl(210,70%,55%)", "hsl(30,90%,52%)",
@@ -46,15 +77,30 @@ export default function Finance() {
   const [pnl, setPnl] = useState<Awaited<ReturnType<typeof financeApi.pnl>> | null>(null);
   const [ratios, setRatios] = useState<FinancialRatios | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [aiResult, setAiResult] = useState<Awaited<ReturnType<typeof financeApi.aiAnalysis>> | null>(null);
   const [aiPending, setAiPending] = useState(false);
 
-  useEffect(() => {
-    Promise.all([financeApi.pnl(), financeApi.ratios()])
+  // Empty range → let the backend pick its own default period (first load).
+  const load = useCallback((f: string, t: string) => {
+    setLoading(true);
+    const args = f || t ? { from: f || undefined, to: t || undefined } : undefined;
+    Promise.all([financeApi.pnl(args), financeApi.ratios(args)])
       .then(([p, r]) => { setPnl(p); setRatios(r); })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load financials"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load("", ""); }, [load]);
+
+  const applyPreset = (range: { from: string; to: string }) => {
+    setFrom(range.from); setTo(range.to); load(range.from, range.to);
+  };
+  const resetRange = () => { setFrom(""); setTo(""); load("", ""); };
+  const fy = currentFyRange();
+  const fyLabel = `FY ${fy.from.slice(0, 4)}–${String(Number(fy.from.slice(0, 4)) + 1).slice(2)}`;
 
   const runAiAnalysis = async () => {
     setAiPending(true);
@@ -68,7 +114,101 @@ export default function Finance() {
     }
   };
 
-  if (loading || !pnl || !ratios) {
+  const ratioText = (def: RatioMeta, r: FinancialRatios) => {
+    const v = r[def.key] as number;
+    return def.format === "pct" ? pct(v) : `${v.toFixed(2)}x`;
+  };
+
+  const downloadPdf = async () => {
+    if (!pnl || !ratios) return;
+    setDownloading(true);
+    try {
+      const sumRev = pnl.monthly.reduce((s, m) => s + m.revenue, 0);
+      const sumExp = pnl.monthly.reduce((s, m) => s + m.expenses, 0);
+      const sumProfit = pnl.monthly.reduce((s, m) => s + m.profit, 0);
+      const sumBreak = pnl.expenseBreakdown.reduce((s, e) => s + e.amount, 0);
+      const sumSrc = pnl.revenueBreakdown.reduce((s, e) => s + e.amount, 0);
+      await downloadReportPdf({
+        title: "Profit & Loss Statement",
+        subtitle: `Period: ${pnl.periodFrom} → ${pnl.periodTo}`,
+        meta: [`${pnl.monthly.length} months`, "EcoSudar"],
+        kpis: [
+          { label: "Revenue", value: inrCompact(pnl.revenue), tone: "brand" },
+          { label: "Expenses", value: inrCompact(pnl.expenses), tone: "muted" },
+          { label: "Gross Profit", value: inrCompact(pnl.grossProfit), tone: pnl.grossProfit >= 0 ? "positive" : "negative" },
+          { label: pnl.netProfit >= 0 ? "Net Profit" : "Net Loss", value: inrCompact(Math.abs(pnl.netProfit)), tone: pnl.netProfit >= 0 ? "positive" : "negative" },
+        ],
+        tables: [
+          {
+            title: "Monthly performance",
+            columns: [
+              { header: "Month", key: "month" },
+              { header: "Revenue", key: (r: MonthlyPoint) => inrText(r.revenue), align: "right" },
+              { header: "Expenses", key: (r: MonthlyPoint) => inrText(r.expenses), align: "right" },
+              { header: "Profit", key: (r: MonthlyPoint) => inrText(r.profit), align: "right" },
+            ],
+            rows: pnl.monthly,
+            totalsRow: ["Total", inrText(sumRev), inrText(sumExp), inrText(sumProfit)],
+          },
+          {
+            title: "Expense breakdown",
+            columns: [
+              { header: "Category", key: "category" },
+              { header: "Amount", key: (r: { amount: number }) => inrText(r.amount), align: "right" },
+            ],
+            rows: pnl.expenseBreakdown,
+            totalsRow: ["Total", inrText(sumBreak)],
+          },
+          {
+            title: "Revenue by source",
+            columns: [
+              { header: "Source", key: "source" },
+              { header: "Amount", key: (r: { amount: number }) => inrText(r.amount), align: "right" },
+            ],
+            rows: pnl.revenueBreakdown,
+            totalsRow: ["Total", inrText(sumSrc)],
+          },
+          {
+            title: "Financial ratios",
+            columns: [
+              { header: "Metric", key: "label" },
+              { header: "Value", key: "value", align: "right" },
+              { header: "Benchmark", key: "benchmark" },
+            ],
+            rows: RATIO_DEFS.map((d) => ({ label: d.label, value: ratioText(d, ratios), benchmark: d.benchmark })),
+          },
+        ],
+        filename: "profit-and-loss",
+        orientation: "portrait",
+        note: "Figures computed live from recorded transactions.",
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "PDF export failed");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const downloadExcel = () => {
+    if (!pnl || !ratios) return;
+    try {
+      exportWorkbook("profit-and-loss", [
+        { name: "Summary", rows: [{
+          Period: `${pnl.periodFrom} → ${pnl.periodTo}`,
+          Revenue: pnl.revenue, Expenses: pnl.expenses,
+          "Gross Profit": pnl.grossProfit, Taxes: pnl.taxes, "Net Profit": pnl.netProfit,
+        }] },
+        { name: "Monthly", rows: pnl.monthly.map((m) => ({ Month: m.month, Revenue: m.revenue, Expenses: m.expenses, Profit: m.profit })) },
+        { name: "Expense Breakdown", rows: pnl.expenseBreakdown.map((e) => ({ Category: e.category, Amount: e.amount })) },
+        { name: "Revenue by Source", rows: pnl.revenueBreakdown.map((r) => ({ Source: r.source, Amount: r.amount })) },
+        { name: "Ratios", rows: RATIO_DEFS.map((d) => ({ Metric: d.label, Value: ratios[d.key], Benchmark: d.benchmark })) },
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Excel export failed");
+    }
+  };
+
+  if (!pnl || !ratios) {
     return <div className="text-center py-20 text-muted-foreground">Loading financial dashboard…</div>;
   }
 
@@ -76,17 +216,44 @@ export default function Finance() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Profit & Loss</h1>
-        <p className="text-muted-foreground">
-          Period: {pnl.periodFrom} → {pnl.periodTo} · Real-time financial overview & key ratios.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Profit & Loss</h1>
+          <p className="text-muted-foreground">
+            Period: {pnl.periodFrom} → {pnl.periodTo} · Real-time financial overview & key ratios.
+          </p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button disabled={downloading}>
+              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Download
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={downloadPdf}><FileText className="h-4 w-4" /> Download P&L (PDF)</DropdownMenuItem>
+            <DropdownMenuItem onClick={downloadExcel}><FileSpreadsheet className="h-4 w-4" /> Download P&L (Excel)</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Date-range filter */}
+      <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-wrap items-end gap-3">
+        <div><Label className="text-xs">From</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" /></div>
+        <div><Label className="text-xs">To</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" /></div>
+        <Button onClick={() => load(from, to)} disabled={loading} className="gap-1.5">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Apply
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => applyPreset(fy)}>{fyLabel}</Button>
+          <Button variant="outline" size="sm" onClick={() => applyPreset({ from: isoMonthsAgo(6), to: new Date().toISOString().slice(0, 10) })}>Last 6 months</Button>
+          <Button variant="ghost" size="sm" onClick={resetRange}>Reset</Button>
+        </div>
       </div>
 
       {/* Top KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Revenue" value={inr(pnl.revenue)} subtitle="↑ 12.4% vs last period" icon={Wallet} />
-        <StatCard title="Total Expenses" value={inr(pnl.expenses)} subtitle="↑ 5.1% vs last period" icon={Receipt} subtitleColor="muted" />
+        <StatCard title="Total Revenue" value={inr(pnl.revenue)} subtitle={monthDelta(pnl.monthly, "revenue")} icon={Wallet} />
+        <StatCard title="Total Expenses" value={inr(pnl.expenses)} subtitle={monthDelta(pnl.monthly, "expenses")} icon={Receipt} subtitleColor="muted" />
         <StatCard title="Gross Profit" value={inr(pnl.grossProfit)} subtitle={`Tax: ${inr(pnl.taxes)}`} icon={TrendingUp} />
         <StatCard
           title={profitable ? "Net Profit" : "Net Loss"}

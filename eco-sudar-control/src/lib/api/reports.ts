@@ -4,7 +4,9 @@
  */
 import { apiFetch } from "./client";
 
-export type ReportModule = "sales" | "orders" | "payments" | "expenses" | "production" | "forecast";
+export type ReportModule =
+  | "sales" | "orders" | "payments" | "expenses"
+  | "purchase" | "gst" | "production" | "stock_valuation" | "forecast";
 
 export interface ReportRow {
   date: string;

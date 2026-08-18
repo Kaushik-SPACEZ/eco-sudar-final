@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Send, IndianRupee, PackageCheck, Trash2 } from "lucide-react";
+import { Plus, Send, IndianRupee, PackageCheck, Trash2, Wallet, Clock, ListChecks } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/StatCard";
 import { ScrollableX } from "@/components/ui/scrollable-x";
 import { toast } from "sonner";
 import { phase2Api, type ApiRow } from "@/lib/api/phase2";
@@ -66,6 +67,17 @@ export default function PurchaseOrders() {
 
   const paged = usePagedRows(filtered);
 
+  // Dashboard totals over the current view (respects the filters above).
+  // Paid = value of POs marked paid; Outstanding = everything else still owed.
+  const stats = useMemo(() => {
+    const active = filtered.filter((r) => String(r.status).toLowerCase() !== "cancelled");
+    const total = active.reduce((s, r) => s + Number(r.total ?? 0), 0);
+    const paid = active
+      .filter((r) => String(r.payment_status ?? "").toLowerCase() === "paid")
+      .reduce((s, r) => s + Number(r.total ?? 0), 0);
+    return { total, paid, outstanding: total - paid, count: active.length };
+  }, [filtered]);
+
   const exportColumns = useMemo<ExportColumnDef<ApiRow>[]>(() => [
     { header: "PO", key: "po_number" },
     { header: "Vendor", key: (r) => vendorName(r) },
@@ -97,6 +109,13 @@ export default function PurchaseOrders() {
           <ExportMenu title="Purchase Orders" columns={exportColumns} rows={filtered} dateField="order_date" filename="purchase-orders" />
           <Button onClick={() => navigate("/purchase/orders/new")}><Plus className="h-4 w-4" /> New PO</Button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total PO value" value={inr(stats.total)} subtitle={`${stats.count} active POs`} icon={IndianRupee} />
+        <StatCard title="Paid" value={inr(stats.paid)} subtitle="settled with vendors" icon={Wallet} subtitleColor="primary" />
+        <StatCard title="Outstanding" value={inr(stats.outstanding)} subtitle="still payable" icon={Clock} subtitleColor={stats.outstanding > 0 ? "muted" : "primary"} />
+        <StatCard title="Purchase Orders" value={String(stats.count)} subtitle="in view" icon={ListChecks} />
       </div>
 
       <FilterBar>

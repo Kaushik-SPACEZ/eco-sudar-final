@@ -124,7 +124,7 @@ export default function Products() {
               {loading ? (
                 <tr><td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">Loading products...</td></tr>
               ) : paged.rows.map((p) => (
-                <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/products/${p.id}`)}>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       {p.imageUrl && <img src={p.imageUrl} alt={p.product} className="h-8 w-8 rounded object-cover" />}
@@ -159,7 +159,7 @@ export default function Products() {
                   </td>
                   
                   
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => navigate(`/products/${p.id}/edit`)} className="p-1.5 hover:bg-muted rounded-lg mr-1"><Edit className="h-4 w-4 text-muted-foreground" /></button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

@@ -143,6 +143,7 @@ require_once ROOT_PATH . '/controllers/admin/AdminPricingController.php';
 require_once ROOT_PATH . '/controllers/admin/AdminExpenseController.php';
 require_once ROOT_PATH . '/controllers/admin/AdminFinanceController.php';
 require_once ROOT_PATH . '/controllers/admin/AdminReportsController.php';
+require_once ROOT_PATH . '/controllers/admin/AdminEwayController.php';
 require_once ROOT_PATH . '/controllers/admin/AdminTaskController.php';
 require_once ROOT_PATH . '/controllers/admin/AdminEmployeeController.php';
 require_once ROOT_PATH . '/controllers/admin/AdminAttendanceController.php';
@@ -367,6 +368,7 @@ $router->get('/admin/invoices/{id}/payments',  [AdminPaymentController::class, '
 $router->post('/admin/invoices/{id}/payments', [AdminPaymentController::class, 'storeForInvoice'], 'admin:owner,accountant');
 $router->get('/admin/invoices/{id}/eway-bill', [AdminInvoiceController::class, 'ewayBill'],     'admin');
 $router->put('/admin/invoices/{id}/eway-bill', [AdminInvoiceController::class, 'saveEwayBill'],  'admin:owner,accountant');
+$router->get('/admin/eway-bills',              [AdminEwayController::class, 'index'],            'admin');
 $router->get('/admin/invoices/{id}',           [AdminInvoiceController::class, 'show'],     'admin');
 $router->put('/admin/invoices/{id}',           [AdminInvoiceController::class, 'update'],   'admin');
 $router->delete('/admin/invoices/{id}',        [AdminInvoiceController::class, 'destroy'],  'admin');

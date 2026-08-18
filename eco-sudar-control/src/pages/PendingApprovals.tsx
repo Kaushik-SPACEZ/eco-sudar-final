@@ -255,7 +255,7 @@ export default function PendingApprovals() {
                 </tr>
               ) : (
                 paged.rows.map((u) => (
-                  <tr key={u.user_id} className="hover:bg-muted/30 transition-colors">
+                  <tr key={u.user_id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openReviewDialog(u)}>
                     <td className="px-5 py-4">
                       <div className="font-medium text-foreground">{u.name}</div>
                       <div className="text-muted-foreground text-xs">{u.email}</div>
@@ -273,7 +273,7 @@ export default function PendingApprovals() {
                          {formatDate(u.created_at)}
                       </div>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end">
                         <Button size="sm" onClick={() => openReviewDialog(u)}>
                           Review Details

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import {
   ArrowLeft, Send, PackageCheck, IndianRupee, Ban, Pencil, CheckCircle2,
   ClipboardList, ShoppingBag, Truck, ReceiptText, Wallet, PackageMinus, Copy, RotateCcw, Undo2,
@@ -37,6 +38,21 @@ const PAY_STATUS_STYLES: Record<string, string> = {
   paid:    "bg-emerald-50 text-emerald-700 border-emerald-200",
   partial: "bg-amber-50 text-amber-700 border-amber-200",
   unpaid:  "bg-red-50 text-red-600 border-red-200",
+};
+
+// Item type badge (mirrors the catalog / PO form). Empty when the line has no
+// catalog match (a free-text line), shown as a dash.
+const ITEM_TYPE_META: Record<string, { label: string; badge: string }> = {
+  stock:        { label: "Spares & Assets", badge: "bg-primary/10 text-primary border-primary/20" },
+  raw_material: { label: "Raw Material",    badge: "bg-amber-50 text-amber-700 border-amber-200" },
+  pellet:       { label: "Pellet",          badge: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+};
+const itemTypeKey = (v: unknown): string => {
+  const t = String(v ?? "").toLowerCase();
+  if (t === "raw_material") return "raw_material";
+  if (t === "pellet" || t === "pellets" || t === "finished") return "pellet";
+  if (t === "stock") return "stock";
+  return "";
 };
 
 type StepState = "done" | "current" | "todo";
@@ -100,6 +116,7 @@ interface ReceiveLine { po_item_id: number; description: string; ordered: number
 
 export default function PurchaseOrderDetail() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/purchase/orders");
   const { id } = useParams();
   const poId = Number(id);
 
@@ -268,7 +285,7 @@ export default function PurchaseOrderDetail() {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" className="mt-1" onClick={() => navigate("/purchase/orders")}><ArrowLeft className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" className="mt-1" onClick={goBack}><ArrowLeft className="h-5 w-5" /></Button>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-foreground">{po.po_number}</h1>
@@ -309,7 +326,6 @@ export default function PurchaseOrderDetail() {
               <Detail label="Order Date" value={po.order_date} />
               <Detail label="Expected" value={po.expected_date || "—"} />
               <Detail label="Payment Terms" value={po.payment_terms || "—"} />
-              <Detail label="GST Treatment" value={po.gst_treatment || "—"} />
               <Detail label="From Request" value={po.pr_id ? `PR #${po.pr_id}` : "Direct PO"} />
             </dl>
             {po.notes && <div className="px-4 pb-4 text-sm"><span className="text-muted-foreground">Notes: </span>{po.notes}</div>}
@@ -326,6 +342,7 @@ export default function PurchaseOrderDetail() {
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
                     <th className="text-left px-4 py-2.5 font-medium">Item</th>
+                    <th className="text-left px-4 py-2.5 font-medium">Type</th>
                     <th className="text-right px-4 py-2.5 font-medium">Ordered</th>
                     <th className="text-right px-4 py-2.5 font-medium">Received</th>
                     <th className="text-right px-4 py-2.5 font-medium">Outstanding</th>
@@ -343,6 +360,11 @@ export default function PurchaseOrderDetail() {
                           <div className="font-medium text-card-foreground">{it.description}</div>
                           {it.hsn_code && <div className="text-xs text-muted-foreground">HSN {it.hsn_code}</div>}
                         </td>
+                        <td className="px-4 py-2.5">
+                          {itemTypeKey(it.item_type)
+                            ? <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", ITEM_TYPE_META[itemTypeKey(it.item_type)].badge)}>{ITEM_TYPE_META[itemTypeKey(it.item_type)].label}</span>
+                            : <span className="text-xs text-muted-foreground">—</span>}
+                        </td>
                         <td className="px-4 py-2.5 text-right eco-nums">{qtyFmt(it.quantity)} {it.unit}</td>
                         <td className="px-4 py-2.5 text-right eco-nums">{qtyFmt(it.received_qty)}</td>
                         <td className={cn("px-4 py-2.5 text-right eco-nums", out > 0 ? "text-amber-600 font-medium" : "text-muted-foreground")}>{qtyFmt(out)}</td>
@@ -352,7 +374,7 @@ export default function PurchaseOrderDetail() {
                       </tr>
                     );
                   })}
-                  {items.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No line items.</td></tr>}
+                  {items.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-muted-foreground">No line items.</td></tr>}
                 </tbody>
               </table>
             </ScrollableX>

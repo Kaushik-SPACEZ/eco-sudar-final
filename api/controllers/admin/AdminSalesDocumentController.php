@@ -266,10 +266,24 @@ class AdminSalesDocumentController
             if (!is_array($item)) {
                 Response::error("items[$idx] must be an object", 422);
             }
+            // A line is one of three types: product (finished stock), spare
+            // (spares & assets) or service (free text, no stock link).
+            $type = in_array($item['item_type'] ?? 'product', ['product', 'spare', 'service'], true)
+                ? ($item['item_type'] ?? 'product') : 'product';
+
             $productId = !empty($item['product_id']) ? (int)$item['product_id'] : null;
             if ($productId && !Database::fetch('SELECT product_id FROM products WHERE product_id = ? LIMIT 1', [$productId])) {
                 Response::error("items[$idx].product_id was not found", 404);
             }
+            $spareId = !empty($item['spare_id']) ? (int)$item['spare_id'] : null;
+            if ($spareId && !Database::fetch('SELECT spare_id FROM spares_assets WHERE spare_id = ? LIMIT 1', [$spareId])) {
+                Response::error("items[$idx].spare_id was not found", 404);
+            }
+            // Keep only the reference that matches the line type.
+            if ($type === 'product') { $spareId = null; }
+            elseif ($type === 'spare') { $productId = null; }
+            else { $productId = null; $spareId = null; }
+
             $description = trim((string)($item['description'] ?? ''));
             $quantity = (float)($item['quantity'] ?? 0);
             $unitPrice = (float)($item['unit_price'] ?? 0);
@@ -287,10 +301,15 @@ class AdminSalesDocumentController
                 Response::error("items[$idx].gst_rate must be one of 0, 5, 12, 18, 28", 422);
             }
 
+            // The form sends the HSN/SAC as `hsn`; older callers use `hsn_code`.
+            $hsn = $item['hsn_code'] ?? $item['hsn'] ?? null;
+
             $clean[] = [
                 'product_id' => $productId,
+                'item_type' => $type,
+                'spare_id' => $spareId,
                 'description' => Request::sanitize($description),
-                'hsn_code' => isset($item['hsn_code']) ? Request::sanitize((string)$item['hsn_code']) : null,
+                'hsn_code' => ($hsn !== null && trim((string)$hsn) !== '') ? Request::sanitize((string)$hsn) : null,
                 'quantity' => $quantity,
                 'unit' => isset($item['unit']) && trim((string)$item['unit']) !== '' ? Request::sanitize((string)$item['unit']) : 'Nos',
                 'unit_price' => $unitPrice,

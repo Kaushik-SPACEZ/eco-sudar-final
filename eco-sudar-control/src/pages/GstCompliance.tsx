@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ShieldCheck, IndianRupee, ReceiptText, Wallet, FileDown, RefreshCw,
+  ShieldCheck, IndianRupee, ReceiptText, Wallet, FileDown, FileText, RefreshCw,
   CheckCircle2, Send, Lock, Percent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   type GstCalc, type GstPeriod, type GstStatus,
 } from "@/lib/api/gstCompliance";
 import { exportWorkbook } from "@/lib/exporters";
+import { downloadReportPdf, inrText, inrCompact } from "@/lib/reportPdf";
 import { StatusBadge } from "@/components/StatusBadge";
 
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -129,6 +130,73 @@ export default function GstCompliance() {
     }
   };
 
+  const onExportPdf = async () => {
+    setBusy(true);
+    try {
+      const data = await gstComplianceApi.export(period);
+      const p = data.period;
+      const b2b = data.gstr1_b2b;
+      const hsn = data.hsn_summary;
+      await downloadReportPdf({
+        title: "GSTR-1 Summary",
+        subtitle: `Return period: ${periodLabel(period)} (${p.from_date} → ${p.to_date})`,
+        meta: [`${b2b.length} B2B invoices`, `${hsn.length} HSN lines`],
+        kpis: [
+          { label: "Taxable Sales", value: inrCompact(p.sales_taxable), tone: "brand" },
+          { label: "Output Tax", value: inrCompact(p.output_tax), tone: "negative" },
+          { label: "Input Credit", value: inrCompact(p.input_tax), tone: "positive" },
+          { label: "Net Payable", value: inrCompact(p.net_payable), tone: p.net_payable > 0 ? "negative" : "positive" },
+        ],
+        tables: [
+          {
+            title: "B2B invoices",
+            columns: [
+              { header: "Invoice", key: "invoice_number" },
+              { header: "Date", key: (r) => r.invoice_date ?? "" },
+              { header: "Customer", key: "customer_name" },
+              { header: "GSTIN", key: "customer_gstin" },
+              { header: "State", key: "customer_state" },
+              { header: "Taxable", key: (r) => inrText(r.taxable), align: "right" },
+              { header: "CGST", key: (r) => inrText(r.cgst_amount), align: "right" },
+              { header: "SGST", key: (r) => inrText(r.sgst_amount), align: "right" },
+              { header: "IGST", key: (r) => inrText(r.igst_amount), align: "right" },
+              { header: "Total", key: (r) => inrText(r.total), align: "right" },
+            ],
+            rows: b2b,
+            totalsRow: ["Total", "", "", "", "",
+              inrText(b2b.reduce((s, r) => s + r.taxable, 0)),
+              inrText(b2b.reduce((s, r) => s + r.cgst_amount, 0)),
+              inrText(b2b.reduce((s, r) => s + r.sgst_amount, 0)),
+              inrText(b2b.reduce((s, r) => s + r.igst_amount, 0)),
+              inrText(b2b.reduce((s, r) => s + r.total, 0))],
+          },
+          {
+            title: "HSN summary",
+            columns: [
+              { header: "HSN", key: "hsn_code" },
+              { header: "GST %", key: (r) => `${r.gst_rate}%` },
+              { header: "Qty", key: "quantity", align: "right" },
+              { header: "Taxable", key: (r) => inrText(r.taxable), align: "right" },
+              { header: "Tax", key: (r) => inrText(r.tax_amount), align: "right" },
+            ],
+            rows: hsn,
+            totalsRow: ["Total", "", "",
+              inrText(hsn.reduce((s, r) => s + r.taxable, 0)),
+              inrText(hsn.reduce((s, r) => s + r.tax_amount, 0))],
+          },
+        ],
+        filename: `GSTR1-${period}`,
+        orientation: "landscape",
+        note: "Computed from sent invoices and posted purchase orders. Verify against the GST portal before filing.",
+      });
+      toast.success("GSTR-1 PDF downloaded");
+    } catch (e: unknown) {
+      toast.error(errorMessage(e, "Export failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const view = calc;
   const isInter = (view?.sales_igst ?? 0) > 0;
 
@@ -160,8 +228,11 @@ export default function GstCompliance() {
           <Button variant="outline" onClick={() => loadPeriod(period)} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Recalculate
           </Button>
+          <Button variant="outline" onClick={onExportPdf} disabled={busy || loading}>
+            <FileText className="h-4 w-4" /> Export GSTR-1 (PDF)
+          </Button>
           <Button variant="outline" onClick={onExport} disabled={busy || loading}>
-            <FileDown className="h-4 w-4" /> Export GSTR-1
+            <FileDown className="h-4 w-4" /> Export GSTR-1 (Excel)
           </Button>
         </div>
       </div>

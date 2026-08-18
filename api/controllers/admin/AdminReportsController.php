@@ -20,7 +20,7 @@ declare(strict_types=1);
  */
 class AdminReportsController
 {
-    private const MODULES = ['sales', 'orders', 'payments', 'expenses', 'production', 'forecast'];
+    private const MODULES = ['sales', 'orders', 'payments', 'expenses', 'purchase', 'gst', 'production', 'stock_valuation', 'forecast'];
 
     public function index(Request $request): void
     {
@@ -42,7 +42,10 @@ class AdminReportsController
             'orders'     => $this->orders($from, $to),
             'payments'   => $this->payments($from, $to),
             'expenses'   => $this->expenses($from, $to),
-            'production' => [], // no production table yet
+            'purchase'   => $this->purchase($from, $to),
+            'gst'        => $this->gstRegister($from, $to),
+            'production' => $this->production($from, $to),
+            'stock_valuation' => $this->stockValuation(),
             'forecast'   => $this->forecast($from, $to),
         };
 
@@ -140,6 +143,91 @@ class AdminReportsController
              ORDER BY expense_date DESC",
             [$from, $to]
         );
+        return self::castAmount($rows);
+    }
+
+    // Purchase register — one row per purchase order with its vendor and pay status.
+    private function purchase(string $from, string $to): array
+    {
+        $rows = Database::fetchAll(
+            "SELECT po.order_date                          AS date,
+                    COALESCE(po.po_number, 'Unknown')      AS reference,
+                    CONCAT('PO · ', COALESCE(po.status, 'draft')) AS category,
+                    COALESCE(NULLIF(TRIM(v.name), ''), 'Unknown') AS party,
+                    po.total                               AS amount,
+                    COALESCE(po.payment_status, 'unpaid')  AS status
+             FROM purchase_orders po
+             LEFT JOIN vendors v ON v.vendor_id = po.vendor_id
+             WHERE po.order_date BETWEEN ? AND ?
+               AND LOWER(COALESCE(po.status, '')) <> 'cancelled'
+             ORDER BY po.order_date DESC, po.po_id DESC",
+            [$from, $to]
+        );
+        return self::castAmount($rows);
+    }
+
+    // GST register — output tax per sales invoice (CGST+SGST vs IGST), for a period.
+    private function gstRegister(string $from, string $to): array
+    {
+        $rows = Database::fetchAll(
+            "SELECT COALESCE(i.invoice_date, DATE(i.created_at)) AS date,
+                    COALESCE(i.invoice_number, 'Unknown')        AS reference,
+                    CASE WHEN i.igst_amount > 0 THEN 'IGST' ELSE 'CGST + SGST' END AS category,
+                    COALESCE(NULLIF(TRIM(i.customer_name), ''), NULLIF(TRIM(u.name), ''), 'Unknown') AS party,
+                    i.gst_amount                                 AS amount,
+                    COALESCE(i.status, 'Unknown')                AS status
+             FROM invoices i
+             LEFT JOIN orders o ON o.order_id = i.order_id
+             LEFT JOIN users  u ON u.user_id  = o.user_id
+             WHERE COALESCE(i.invoice_date, DATE(i.created_at)) BETWEEN ? AND ?
+               AND LOWER(COALESCE(i.status, '')) <> 'cancelled'
+             ORDER BY date DESC",
+            [$from, $to]
+        );
+        return self::castAmount($rows);
+    }
+
+    // Production report — finished-goods output per run (amount carries the quantity).
+    private function production(string $from, string $to): array
+    {
+        $rows = Database::fetchAll(
+            "SELECT pr.run_date                              AS date,
+                    COALESCE(NULLIF(TRIM(pr.batch_number), ''), CONCAT('RUN-', pr.run_id)) AS reference,
+                    COALESCE(NULLIF(TRIM(p.product_name), ''), 'Unknown') AS category,
+                    COALESCE(NULLIF(TRIM(pr.operator_name), ''), '—')     AS party,
+                    pr.output_quantity                       AS amount,
+                    pr.shift                                 AS status
+             FROM production_runs pr
+             LEFT JOIN products p ON p.product_id = pr.product_id
+             WHERE pr.run_date BETWEEN ? AND ?
+             ORDER BY pr.run_date DESC, pr.run_id DESC",
+            [$from, $to]
+        );
+        return self::castAmount($rows);
+    }
+
+    // Stock valuation — current on-hand value per active inventory product (snapshot,
+    // ignores the date range). amount = on-hand qty × standard cost, summed over zones.
+    private function stockValuation(): array
+    {
+        $rows = Database::fetchAll(
+            "SELECT DATE(MAX(s.last_movement_at))            AS date,
+                    ip.sku                                    AS reference,
+                    COALESCE(NULLIF(TRIM(ip.category), ''), 'Uncategorised') AS category,
+                    ip.name                                   AS party,
+                    SUM(s.current_quantity * ip.standard_cost) AS amount,
+                    CASE WHEN MAX(s.is_low_stock) = 1 THEN 'Low stock' ELSE 'In stock' END AS status
+             FROM inventory_products ip
+             LEFT JOIN inventory_stock s ON s.inv_product_id = ip.inv_product_id
+             WHERE ip.is_deleted = 0 AND ip.is_active = 1
+             GROUP BY ip.inv_product_id, ip.sku, ip.category, ip.name
+             ORDER BY amount DESC",
+            []
+        );
+        foreach ($rows as &$r) {
+            if (empty($r['date'])) { $r['date'] = date('Y-m-d'); }
+        }
+        unset($r);
         return self::castAmount($rows);
     }
 

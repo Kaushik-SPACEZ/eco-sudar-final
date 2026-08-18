@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { ArrowLeft, Pencil, Package, ShoppingBag, IndianRupee, Boxes } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ const PO_STATUS_STYLES: Record<string, string> = {
 
 export default function PurchaseItemDetail() {
   const navigate = useNavigate();
+  const goBack = useSmartBack("/purchase/items");
   const { id } = useParams();
   const itemId = Number(id);
 
@@ -85,7 +87,7 @@ export default function PurchaseItemDetail() {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" className="mt-1" onClick={() => navigate("/purchase/items")}><ArrowLeft className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" className="mt-1" onClick={goBack}><ArrowLeft className="h-5 w-5" /></Button>
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-foreground">{item.name}</h1>

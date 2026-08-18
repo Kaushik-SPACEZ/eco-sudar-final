@@ -83,7 +83,7 @@ export default function RawMaterials() {
         </div>
         <div className="flex items-center gap-2">
           <ExportMenu title="Raw Materials" columns={EXPORT_COLUMNS} rows={filtered} filename="raw-materials" />
-          <Button onClick={() => navigate("/inventory/materials/new")}><Plus className="h-4 w-4" /> Add material</Button>
+          <Button onClick={() => navigate("/inventory/raw-materials/new")}><Plus className="h-4 w-4" /> Add material</Button>
         </div>
       </div>
 
@@ -109,7 +109,7 @@ export default function RawMaterials() {
               {loading && <TableSkeleton cols={6} />}
               {!loading && filtered.length === 0 && <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">No raw materials. Add your first feedstock.</td></tr>}
               {!loading && paged.rows.map((m) => (
-                <tr key={m.raw_material_id} className="border-t hover:bg-muted/30">
+                <tr key={m.raw_material_id} className="border-t hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/inventory/raw-materials/${m.raw_material_id}`)}>
                   <td className="px-4 py-3 font-medium text-card-foreground">{m.name}</td>
                   <td className="px-4 py-3 text-right eco-nums">{qty(m.current_stock, m.unit)}</td>
                   <td className="px-4 py-3 text-right text-muted-foreground eco-nums">{qty(m.reorder_level, m.unit)}</td>
@@ -119,10 +119,10 @@ export default function RawMaterials() {
                       ? <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive font-medium">Low</span>
                       : <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">OK</span>}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex gap-1">
                       <Button size="icon" variant="ghost" title="Stock in/out" onClick={() => { setMoveFor(m); setMove({ movement_type: "in", quantity: 0, reference: "", movement_date: new Date().toISOString().slice(0, 10) }); }}><ArrowDownUp className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" title="Edit" onClick={() => navigate(`/inventory/materials/${m.raw_material_id}/edit`)}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" title="Edit" onClick={() => navigate(`/inventory/raw-materials/${m.raw_material_id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                       <Button size="icon" variant="ghost" title="Deactivate" onClick={() => setConfirmDel(m)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
                   </td>

@@ -138,7 +138,7 @@ export default function SalesBilling() {
   const downloadPdf = async (d: ApiRow) => {
     try {
       const full = await phase2Api.salesDocuments.get(d.document_id);
-      downloadSalesDocumentPdf(full);
+      await downloadSalesDocumentPdf(full);
     } catch (e: any) { toast.error(e.message); }
   };
 

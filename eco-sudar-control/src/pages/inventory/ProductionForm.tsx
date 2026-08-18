@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { inventoryApi, qty, type StockItem, type RawMaterial, type SpareAsset, type ProductionInput } from "@/lib/api/inventory";
+import { RecordCombobox } from "@/components/RecordCombobox";
+import { QuickCreateDialog } from "@/components/QuickCreateDialog";
+import { createProduct, toProductType } from "@/lib/api/products";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -54,6 +57,11 @@ export default function ProductionForm() {
   const [meta, setMeta] = useState({ run_date: today(), batch_number: "", shift: "general", operator_name: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Inline "add finished product" popup for the Finished Output picker.
+  const [newProdOpen, setNewProdOpen] = useState(false);
+  const [newProdIdx, setNewProdIdx] = useState<number | null>(null);
+  const [newProd, setNewProd] = useState({ name: "", category: "", base_price: "" });
+  const [newProdSaving, setNewProdSaving] = useState(false);
 
   const setM = <K extends keyof typeof meta>(k: K, v: string) => setMeta((f) => ({ ...f, [k]: v }));
   const setQ = <K extends keyof QualityForm>(k: K, v: string) => setQuality((q) => ({ ...q, [k]: v }));
@@ -142,6 +150,33 @@ export default function ProductionForm() {
 
   const productLabel = (id: number) => products.find((p) => p.product_id === id)?.product_name ?? "";
 
+  // Create a finished product inline and drop it into the output line that asked for it.
+  const submitNewProduct = async () => {
+    if (!newProd.name.trim()) { toast.error("Product name is required"); return; }
+    setNewProdSaving(true);
+    try {
+      await createProduct({
+        product_name: newProd.name.trim(),
+        product_type: toProductType(newProd.category.trim() || "Pellets"),
+        base_price: Number(newProd.base_price || 0),
+        category: newProd.category.trim() || undefined,
+        is_available: true,
+      });
+      const stock = await inventoryApi.stock();
+      setProducts(stock);
+      const created = stock.find((p) => p.product_name.trim().toLowerCase() === newProd.name.trim().toLowerCase());
+      if (created && newProdIdx != null) {
+        setOutputs((arr) => arr.map((x, idx) => idx === newProdIdx ? { ...x, product_id: created.product_id, unit: created.unit || x.unit } : x));
+      }
+      toast.success("Finished product added");
+      setNewProdOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add product");
+    } finally {
+      setNewProdSaving(false);
+    }
+  };
+
   return (
     <FormPage
       title={editing ? "Edit Production Run" : "Log Production Run"}
@@ -189,10 +224,19 @@ export default function ProductionForm() {
             <div className="max-w-2xl space-y-2">
               {outputs.map((o, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Select value={o.product_id ? String(o.product_id) : ""} onValueChange={(v) => setOutputs((arr) => arr.map((x, idx) => idx === i ? { ...x, product_id: Number(v), unit: products.find((p) => p.product_id === Number(v))?.unit || x.unit } : x))}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Select product" /></SelectTrigger>
-                    <SelectContent>{products.map((p) => <SelectItem key={p.product_id} value={String(p.product_id)}>{p.product_name}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <div className="flex-1">
+                    <RecordCombobox
+                      options={products}
+                      value={o.product_id || null}
+                      onSelect={(v) => setOutputs((arr) => arr.map((x, idx) => idx === i ? { ...x, product_id: Number(v), unit: products.find((p) => p.product_id === Number(v))?.unit || x.unit } : x))}
+                      getId={(p) => p.product_id}
+                      getLabel={(p) => p.product_name}
+                      getSecondary={(p) => [p.category, `${p.stock_quantity} ${p.unit} in stock`].filter(Boolean).join(" · ") || undefined}
+                      placeholder="Select product"
+                      onAddNew={() => { setNewProd({ name: "", category: "", base_price: "" }); setNewProdIdx(i); setNewProdOpen(true); }}
+                      addNewLabel="Add finished product"
+                    />
+                  </div>
                   <Input type="number" min={0} step={0.01} placeholder="Qty" value={o.quantity} onChange={(e) => setOutputs((arr) => arr.map((x, idx) => idx === i ? { ...x, quantity: e.target.value } : x))} className="w-28" />
                   <Input placeholder="Unit" value={o.unit} onChange={(e) => setOutputs((arr) => arr.map((x, idx) => idx === i ? { ...x, unit: e.target.value } : x))} className="w-20" />
                   <Button variant="ghost" size="icon" type="button" className="h-8 w-8 text-muted-foreground hover:text-destructive" disabled={outputs.length === 1} onClick={() => setOutputs((arr) => arr.filter((_, idx) => idx !== i))}><Trash2 className="h-4 w-4" /></Button>
@@ -200,6 +244,35 @@ export default function ProductionForm() {
               ))}
             </div>
           </section>
+
+          {/* Inline: create a finished product without leaving the run */}
+          <QuickCreateDialog
+            open={newProdOpen}
+            onOpenChange={setNewProdOpen}
+            title="New Finished Product"
+            description="Saved to Products and available as a finished-stock output."
+            size="md"
+            saving={newProdSaving}
+            submitLabel="Save product"
+            onSubmit={submitNewProduct}
+          >
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Name <Req /></Label>
+                <Input value={newProd.name} onChange={(e) => setNewProd((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Pellet Premium 6mm" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Category</Label>
+                  <Input value={newProd.category} onChange={(e) => setNewProd((f) => ({ ...f, category: e.target.value }))} placeholder="e.g. Pellets" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Base Price (₹)</Label>
+                  <Input type="number" min={0} step="0.01" value={newProd.base_price} onChange={(e) => setNewProd((f) => ({ ...f, base_price: e.target.value }))} placeholder="0.00" />
+                </div>
+              </div>
+            </div>
+          </QuickCreateDialog>
 
           {/* Raw materials consumed */}
           <section className="space-y-3 border-t pt-6">

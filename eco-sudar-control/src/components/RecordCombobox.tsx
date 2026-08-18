@@ -108,7 +108,15 @@ export function RecordCombobox<T>({
 
       {open && rect && createPortal(
         <div
-          style={{ position: "fixed", left: rect.left, top: rect.top, width: rect.width, zIndex: 60 }}
+          style={{
+            position: "fixed",
+            // A narrow trigger (e.g. a table cell) shouldn't produce a clipped menu:
+            // give it a readable minimum width and keep it inside the viewport.
+            width: Math.max(rect.width, 240),
+            left: Math.max(8, Math.min(rect.left, window.innerWidth - Math.max(rect.width, 240) - 8)),
+            top: rect.top,
+            zIndex: 60,
+          }}
           className="rounded-md border bg-popover shadow-md overflow-hidden"
         >
           <div className="flex items-center gap-2 border-b px-3 py-2">
@@ -141,9 +149,9 @@ export function RecordCombobox<T>({
                     active ? "bg-primary/10 text-primary" : "hover:bg-muted",
                   )}
                 >
-                  <span className="text-sm font-medium leading-tight">{label}</span>
+                  <span className="text-sm font-medium leading-tight truncate">{label}</span>
                   {secondary && (
-                    <span className="text-xs text-muted-foreground leading-tight">{secondary}</span>
+                    <span className="text-xs text-muted-foreground leading-tight truncate">{secondary}</span>
                   )}
                 </li>
               );

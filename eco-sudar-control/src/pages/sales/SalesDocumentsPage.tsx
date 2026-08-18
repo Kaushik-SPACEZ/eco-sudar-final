@@ -47,7 +47,7 @@ export default function SalesDocumentsPage({ docType, title, blurb }: { docType:
   const paged = usePagedRows(filtered);
 
   const downloadPdf = async (d: ApiRow) => {
-    try { downloadSalesDocumentPdf(await phase2Api.salesDocuments.get(d.document_id)); }
+    try { await downloadSalesDocumentPdf(await phase2Api.salesDocuments.get(d.document_id)); }
     catch (e) { toast.error(err(e, "PDF failed")); }
   };
   const transition = async (d: ApiRow, action: "send" | "accept" | "cancel") => {

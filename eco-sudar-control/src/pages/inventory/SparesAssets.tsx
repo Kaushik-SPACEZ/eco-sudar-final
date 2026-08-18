@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Pencil, ArrowDownUp, Trash2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ interface EditForm { name: string; category: string; unit: string; reorder_level
 const emptyForm = (): EditForm => ({ name: "", category: "", unit: "nos", reorder_level: 0, location: "", current_stock: 0 });
 
 export default function SparesAssets() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<SpareAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -156,7 +158,7 @@ export default function SparesAssets() {
               {loading && <TableSkeleton cols={7} />}
               {!loading && filtered.length === 0 && <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No spares or assets yet. Received PO stock items appear here automatically.</td></tr>}
               {!loading && paged.rows.map((s) => (
-                <tr key={s.spare_id} className="border-t hover:bg-muted/30">
+                <tr key={s.spare_id} className="border-t hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/inventory/items/${s.spare_id}`)}>
                   <td className="px-4 py-3 font-medium text-card-foreground">{s.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{s.category || "—"}</td>
                   <td className="px-4 py-3 text-right eco-nums">{qty(s.current_stock, s.unit)}</td>
@@ -167,7 +169,7 @@ export default function SparesAssets() {
                       ? <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive font-medium">Low</span>
                       : <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">OK</span>}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex gap-1">
                       <Button size="icon" variant="ghost" title="Stock in/out" onClick={() => { setMoveFor(s); setMove({ movement_type: "in", quantity: 0, reference: "", movement_date: today() }); }}><ArrowDownUp className="h-4 w-4" /></Button>
                       <Button size="icon" variant="ghost" title="Edit" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>

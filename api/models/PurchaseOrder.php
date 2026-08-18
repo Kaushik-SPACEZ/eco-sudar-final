@@ -283,7 +283,12 @@ class PurchaseOrder
     public static function items(int $id): array
     {
         return Database::fetchAll(
-            'SELECT poi.*, p.product_name
+            'SELECT poi.*, p.product_name,
+                    (SELECT pi.item_type FROM purchase_items pi
+                     WHERE pi.purchase_item_id = poi.purchase_item_id
+                        OR (poi.purchase_item_id IS NULL AND pi.name = poi.description)
+                     ORDER BY (pi.purchase_item_id = poi.purchase_item_id) DESC
+                     LIMIT 1) AS item_type
              FROM purchase_order_items poi
              LEFT JOIN products p ON p.product_id = poi.product_id
              WHERE poi.po_id = ?
@@ -447,6 +452,7 @@ class PurchaseOrder
             'po_id' => (int)$row['po_id'],
             'description' => $row['description'],
             'purchase_item_id' => isset($row['purchase_item_id']) && $row['purchase_item_id'] ? (int)$row['purchase_item_id'] : null,
+            'item_type' => $row['item_type'] ?? null,
             'product_id' => $row['product_id'] ? (int)$row['product_id'] : null,
             'product_name' => $row['product_name'] ?? null,
             'hsn_code' => $row['hsn_code'],

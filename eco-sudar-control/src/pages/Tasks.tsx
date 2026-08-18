@@ -358,7 +358,7 @@ export default function Tasks() {
                     const assignee = empMap[t.assigneeId];
                     const overdue = t.status !== "Completed" && t.dueDate < today;
                     return (
-                      <tr key={t.id} className="border-t hover:bg-muted/30">
+                      <tr key={t.id} className="border-t hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/tasks/${t.id}/edit`)}>
                         <td className="px-4 py-3 font-medium text-card-foreground">{t.id}</td>
                         <td className="px-4 py-3">
                           {t.title}
@@ -371,7 +371,7 @@ export default function Tasks() {
                           <div className={overdue ? "text-destructive font-medium" : ""}>{t.dueDate}</div>
                           <div className="text-[10px] text-muted-foreground">Created {fmtDate(t.createdAt)}</div>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="inline-flex gap-1">
                             <Button size="icon" variant="ghost" onClick={() => navigate(`/tasks/${t.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                             <Button size="icon" variant="ghost" onClick={() => setConfirmDelete(t)}><Trash2 className="h-4 w-4 text-destructive" /></Button>

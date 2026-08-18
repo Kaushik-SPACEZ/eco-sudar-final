@@ -13,6 +13,7 @@ import Customers from "./pages/Customers";
 import PendingApprovals from "./pages/PendingApprovals";
 import Dealers from "./pages/Dealers";
 import Invoices from "./pages/Invoices";
+import EwayBills from "./pages/EwayBills";
 import Expenses from "./pages/Expenses";
 import Finance from "./pages/Finance";
 import GstCompliance from "./pages/GstCompliance";
@@ -55,6 +56,7 @@ import NotFound from "./pages/NotFound";
 import Contact from "./pages/Contact";
 import CustomerForm from "./pages/CustomerForm";
 import ProductForm from "./pages/ProductForm";
+import ProductDetail from "./pages/ProductDetail";
 import OrderForm from "./pages/OrderForm";
 import ExpenseForm from "./pages/ExpenseForm";
 import TaskForm from "./pages/TaskForm";
@@ -77,6 +79,8 @@ import MovementForm from "./pages/inventory/MovementForm";
 import ProductionForm from "./pages/inventory/ProductionForm";
 import ProductionDetail from "./pages/inventory/ProductionDetail";
 import RawMaterialForm from "./pages/inventory/RawMaterialForm";
+import RawMaterialDetail from "./pages/inventory/RawMaterialDetail";
+import SpareAssetDetail from "./pages/inventory/SpareAssetDetail";
 import SalesDocumentForm from "./pages/sales/SalesDocumentForm";
 
 const queryClient = new QueryClient({
@@ -126,10 +130,12 @@ function ProtectedRoutes() {
         <Route path="/products" element={<Products />} />
         <Route path="/products/new" element={<ProductForm />} />
         <Route path="/products/:id/edit" element={<ProductForm />} />
+        <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/new" element={<OrderForm />} />
         <Route path="/inventory" element={<InventoryOverview />} />
         <Route path="/inventory/items" element={<SparesAssets />} />
+        <Route path="/inventory/items/:id" element={<SpareAssetDetail />} />
         <Route path="/inventory/production" element={<Production />} />
         <Route path="/inventory/production/new" element={<ProductionForm />} />
         <Route path="/inventory/production/:id/edit" element={<ProductionForm />} />
@@ -137,6 +143,7 @@ function ProtectedRoutes() {
         <Route path="/inventory/raw-materials" element={<RawMaterials />} />
         <Route path="/inventory/raw-materials/new" element={<RawMaterialForm />} />
         <Route path="/inventory/raw-materials/:id/edit" element={<RawMaterialForm />} />
+        <Route path="/inventory/raw-materials/:id" element={<RawMaterialDetail />} />
         <Route path="/inventory/stock" element={<StockLevels />} />
         <Route path="/inventory/movements" element={<Movements />} />
         <Route path="/inventory/movements/new" element={<MovementForm />} />
@@ -169,6 +176,7 @@ function ProtectedRoutes() {
         <Route path="/invoices" element={<Invoices />} />
         <Route path="/invoices/new" element={<InvoiceForm />} />
         <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
+        <Route path="/eway-bills" element={<EwayBills />} />
         <Route path="/sales-billing" element={<SalesBilling />} />
         <Route path="/sales-billing/new" element={<SaleBillingForm />} />
         <Route path="/sales-billing/:id/edit" element={<SaleBillingForm />} />

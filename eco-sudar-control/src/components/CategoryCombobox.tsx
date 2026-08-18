@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Plus, Search, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,7 @@ export function CategoryCombobox({
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
 
   const q = query.trim();
@@ -86,9 +87,20 @@ export function CategoryCombobox({
     }
   };
 
-  // Close on blur (same pattern as RecordCombobox) — the 150ms delay lets an
-  // option's onMouseDown fire first. Proven to behave inside dialogs and tables.
-  const handleBlur = () => { setTimeout(() => setOpen(false), 150); };
+  // Close on any outside click. A document-level mousedown listener is used instead
+  // of the input's onBlur because inside a Radix dialog the focus-trap can keep the
+  // input from ever blurring, leaving the menu stuck open. Clicks on the trigger or
+  // inside the menu are ignored (menu clicks are handled by their own onMouseDown).
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown, true);
+    return () => document.removeEventListener("mousedown", onDown, true);
+  }, [open]);
 
   return (
     <div className={cn("relative", className)}>
@@ -113,6 +125,7 @@ export function CategoryCombobox({
 
       {open && rect && createPortal(
         <div
+          ref={menuRef}
           style={{ position: "fixed", left: rect.left, top: rect.top, width: rect.width, zIndex: 60 }}
           className="rounded-md border bg-popover shadow-md overflow-hidden"
         >
@@ -123,7 +136,6 @@ export function CategoryCombobox({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              onBlur={handleBlur}
               placeholder="Search or type a new category…"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
